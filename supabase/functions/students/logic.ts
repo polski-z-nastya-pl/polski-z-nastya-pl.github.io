@@ -9,6 +9,7 @@ export type Deps = {
   tokenHashFor(userId: string): Promise<string>; // одноразовый хэш для verifyOtp
   setPassword(userId: string, password: string): Promise<void>;
   addStudent(email: string, name: string, password: string): Promise<string | null>; // null — такой email уже есть
+  inviteByEmail(email: string, name: string): Promise<string | null>; // шлёт письмо со ссылкой; null — email уже есть
   deleteStudent(userId: string): Promise<void>;
 };
 
@@ -32,7 +33,7 @@ export async function handle(req: Req, bearer: string | null, d: Deps): Promise<
     return { status: 200, body: { token_hash: await d.tokenHashFor(userId) } };
   }
 
-  if (req.action === "invite" || req.action === "regenerate" || req.action === "set_password" || req.action === "add_student" || req.action === "delete_student") {
+  if (req.action === "invite" || req.action === "regenerate" || req.action === "set_password" || req.action === "add_student" || req.action === "invite_email" || req.action === "delete_student") {
     const caller = bearer ? await d.getCaller(bearer) : null;
     if (!caller) return err(401, "Нужно войти");
     if (!(await d.isTeacher(caller))) return err(403, "Только для учителя");
@@ -45,6 +46,15 @@ export async function handle(req: Req, bearer: string | null, d: Deps): Promise<
       const userId = await d.addStudent(email, name, password);
       if (!userId) return err(409, "Ученик с таким email уже есть");
       return { status: 200, body: { user_id: userId, email, name, password } };
+    }
+
+    if (req.action === "invite_email") {
+      const email = (req.email ?? "").trim().toLowerCase();
+      if (!EMAIL.test(email) || email.length > 120) return err(400, "Проверьте email");
+      const name = (req.name ?? "").trim().slice(0, 60) || email.split("@")[0];
+      const userId = await d.inviteByEmail(email, name);
+      if (!userId) return err(409, "Ученик с таким email уже есть");
+      return { status: 200, body: { user_id: userId, email, name, sent: true } };
     }
 
     if (req.action === "invite") {

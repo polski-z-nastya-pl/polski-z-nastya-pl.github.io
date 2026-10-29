@@ -96,8 +96,8 @@
 
   function showChangePassword(opts = {}) {
     $app.innerHTML = `${opts.recovery ? "" : `<div class="top"><button class="link" id="back">← Назад</button></div>`}
-      <h1>${opts.recovery ? "Новый пароль" : "Сменить пароль"}</h1>
-      <p class="sub">${opts.recovery ? "Придумайте новый пароль для входа." : "Задайте свой пароль вместо временного."}</p>
+      <h1>${opts.welcome ? "Добро пожаловать!" : opts.recovery ? "Новый пароль" : "Сменить пароль"}</h1>
+      <p class="sub">${opts.welcome ? "Придумайте пароль: с ним вы будете входить в приложение." : opts.recovery ? "Придумайте новый пароль для входа." : "Задайте свой пароль вместо временного."}</p>
       <form id="cf" class="q">
         <label class="field">Новый пароль (от 6 символов)
           <span class="pw"><input type="password" id="np" autocomplete="new-password" minlength="6" required>
@@ -595,6 +595,14 @@
     on("cp", async () => { try { await navigator.clipboard.writeText(text); $("er").style.color = "var(--ok)"; $("er").textContent = "Скопировано. Вставьте в мессенджер."; } catch { $("inv").select(); $("er").textContent = "Выделено: скопируйте вручную."; } });
   }
 
+  function showInviteSent(r) {
+    $app.innerHTML = `<div class="top"><button class="link" id="back">← К ученикам</button><span>Приглашение</span></div>
+      <div class="q"><h2>✉ Приглашение отправлено</h2>
+        <p class="hint">Письмо ушло на <b>${esc(r.email)}</b>. Ученик нажмёт ссылку в письме, придумает пароль и сразу попадёт в приложение.</p>
+        <p class="hint">Если письма нет несколько минут, пусть проверит папку «Спам». Если не нашлось, вернитесь и создайте пароль вручную.</p></div>`;
+    on("back", teacherStudents);
+  }
+
   function showPassword(p, password) {
     $app.innerHTML = `<div class="top"><button class="link" id="back">← К ученикам</button><span>Новый пароль</span></div>
       <div class="q"><h2>${esc(p.display_name)}</h2>
@@ -625,7 +633,7 @@
         <div class="acc-body">
           <label class="field">Имя<input type="text" id="an" placeholder="Например, Юлия"></label>
           <label class="field">Email<input type="text" id="ae" placeholder="email ученика" inputmode="email" autocapitalize="off"></label>
-          <div class="row"><button class="btn" id="aa">Создать доступ</button><button class="btn alt" id="inv">Ученик без почты</button></div>
+          <div class="row"><button class="btn" id="am">✉ Отправить приглашение на почту</button><button class="btn alt" id="aa">Создать пароль вручную</button><button class="btn alt" id="inv">Ученик без почты</button></div>
           <div class="err" id="aer"></div>
         </div></details></div>
 
@@ -650,6 +658,14 @@
       ${pending.length ? `<h3 class="sec">Добавлены, но ещё не вошли</h3><div class="list">${pending.map((a) => `<div class="li" style="cursor:default"><span class="li-main"><b>${esc(a.email)}</b></span><span class="li-side"><button class="link" data-del="${esc(a.email)}">убрать</button></span></div>`).join("")}</div>` : ""}`;
     bindTabs();
     $app.querySelectorAll("[data-t]").forEach((c) => c.onchange = () => setAssign(c.dataset.t, c.dataset.u, c.checked, c));
+    on("am", async () => {
+      const email = $("ae").value.trim().toLowerCase(), name = $("an").value.trim(), er = $("aer");
+      er.style.color = "var(--bad)";
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { er.textContent = "Проверьте email."; return; }
+      $("am").disabled = true; er.textContent = "Отправляем…"; er.style.color = "var(--muted)";
+      try { showInviteSent(await callFn({ action: "invite_email", email, name })); }
+      catch (e) { er.style.color = "var(--bad)"; er.textContent = e.message; $("am").disabled = false; }
+    });
     on("aa", async () => {
       const email = $("ae").value.trim().toLowerCase(), name = $("an").value.trim(), er = $("aer");
       er.style.color = "var(--bad)";
@@ -842,8 +858,10 @@
     try { await loadProfile(); home(); } catch (e) { fail(e); }
   }
   let recovering = false;
+  let inviteLink = /[#&]type=invite\b/.test(location.hash); // ссылка из письма-приглашения
   sb.auth.onAuthStateChange((event, session) => {
     if (claiming) return;
+    if (inviteLink && session && (event === "SIGNED_IN" || event === "INITIAL_SESSION")) { inviteLink = false; recovering = true; setTimeout(() => showChangePassword({ recovery: true, welcome: true }), 0); return; }
     if (event === "PASSWORD_RECOVERY") { recovering = true; setTimeout(() => showChangePassword({ recovery: true }), 0); return; }
     if (recovering) return;
     if (event === "SIGNED_IN" && session && me.user?.id === session.user.id) return; // обновление токена/возврат на вкладку

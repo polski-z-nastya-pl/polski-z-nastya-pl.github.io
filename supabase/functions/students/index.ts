@@ -56,6 +56,25 @@ const deps = {
     }
     return r.data.user.id;
   },
+  async inviteByEmail(email: string, name: string) {
+    await admin.from("allowed_emails").upsert({ email, name });
+    const r = await admin.auth.admin.inviteUserByEmail(email, {
+      data: { display_name: name },
+      redirectTo: Deno.env.get("SITE_URL") ?? "https://polski-z-nastya-pl.github.io/",
+    });
+    if (r.error) {
+      if (/already|registered|exists/i.test(r.error.message)) return null;
+      // письмо не ушло: убираем недооформленного пользователя, чтобы можно было повторить
+      const { data } = await admin.from("profiles").select("id").eq("email", email).maybeSingle();
+      if (data?.id) {
+        const u = await admin.auth.admin.getUserById(data.id);
+        if (u.data.user && !u.data.user.email_confirmed_at) await admin.auth.admin.deleteUser(data.id);
+      }
+      await admin.from("allowed_emails").delete().eq("email", email);
+      throw new Error("Не удалось отправить письмо: " + r.error.message);
+    }
+    return r.data.user.id;
+  },
   async deleteStudent(userId: string) {
     const { data } = await admin.from("profiles").select("email").eq("id", userId).maybeSingle();
     if (data?.email) await admin.from("allowed_emails").delete().eq("email", data.email);

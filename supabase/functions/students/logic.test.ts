@@ -16,6 +16,7 @@ const mk = (over: Partial<Deps> = {}): Deps & { log: string[] } => {
     setPassword: async (u, p) => { log.push("pw:" + u + ":" + p.length); },
     deleteStudent: async (u) => { log.push("del:" + u); },
     addStudent: async (e, n, p) => { log.push("add:" + e + ":" + n + ":" + p.length); return e === "dup@x.com" ? null : "55555555-5555-4555-8555-555555555555"; },
+    inviteByEmail: async (e, n) => { log.push("mail:" + e + ":" + n); return e === "dup@x.com" ? null : "77777777-7777-4777-8777-777777777777"; },
     ...over,
   };
 };
@@ -94,4 +95,17 @@ test("set_password: другому учителю можно, себе и уда
   assert.equal((await handle({ action: "set_password", user_id: T }, "teacher-jwt", d)).status, 400);
   assert.equal((await handle({ action: "delete_student", user_id: T2 }, "teacher-jwt", d)).status, 400);
   assert.equal((await handle({ action: "regenerate", user_id: T2 }, "teacher-jwt", d)).status, 400);
+});
+
+test("invite_email: только учитель, проверка email, дубликат — 409, письмо отправляется", async () => {
+  assert.equal((await handle({ action: "invite_email", email: "a@x.com" }, null, mk())).status, 401);
+  assert.equal((await handle({ action: "invite_email", email: "a@x.com" }, "student-jwt", mk())).status, 403);
+  assert.equal((await handle({ action: "invite_email", email: "bad" }, "teacher-jwt", mk())).status, 400);
+  assert.equal((await handle({ action: "invite_email", email: "dup@x.com" }, "teacher-jwt", mk())).status, 409);
+  const d = mk();
+  const r = await handle({ action: "invite_email", email: " Julia@X.com ", name: "Юлия" }, "teacher-jwt", d);
+  assert.equal(r.status, 200);
+  assert.deepEqual(d.log, ["mail:julia@x.com:Юлия"]);
+  assert.equal(r.body.sent, true);
+  assert.ok(!("password" in r.body));
 });
