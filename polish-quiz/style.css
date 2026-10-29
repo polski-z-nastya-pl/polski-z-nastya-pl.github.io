@@ -25,7 +25,7 @@ h1{margin:8px 0 4px;font-size:28px}
 .btn{background:var(--accent-2);border-color:var(--accent-2);color:#fff;text-align:center;font-weight:600}
 .btn.alt{background:var(--bg);color:var(--text);border-color:var(--border)}
 .row{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
-input[type=text]{width:100%;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+input[type=text],input[type=password]{width:100%;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
 .fb{margin-top:14px;padding:12px 14px;border-radius:10px;font-size:15px}
 .fb.ok{background:color-mix(in srgb,var(--ok) 15%,transparent)}.fb.bad{background:color-mix(in srgb,var(--bad) 13%,transparent)}
 .say{background:none;border:0;cursor:pointer;font-size:20px;vertical-align:middle}
@@ -33,3 +33,18 @@ input[type=text]{width:100%;font:inherit;color:inherit;background:var(--bg);bord
 .review{list-style:none;padding:0;margin:16px 0;display:grid;gap:8px}
 .review li{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:15px}
 .review .a{color:var(--ok)}.review .u{color:var(--bad)}
+.tabs{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
+.tab{font:inherit;color:inherit;background:var(--card);border:1px solid var(--border);border-radius:99px;padding:6px 14px;cursor:pointer}
+.tab.on{background:var(--accent-2);border-color:var(--accent-2);color:#fff}
+.field{display:grid;gap:4px;margin-bottom:12px;font-size:14px;color:var(--muted)}
+textarea,select{width:100%;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+textarea{min-height:70px;resize:vertical}
+.badge{display:inline-block;font-size:12px;font-weight:700;padding:1px 8px;border-radius:99px;background:var(--accent-2);color:#fff;margin-right:6px}
+.badge.off{background:var(--muted)}
+.item{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+.item .row{margin-top:8px}
+.btn.sm,.btn.danger{padding:6px 12px;font-size:14px}
+.btn.danger{background:var(--bad);border-color:var(--bad)}
+.err{color:var(--bad);font-size:14px;min-height:20px}
+.flash{text-align:center;padding:36px 16px}.flash .w{font-size:32px;font-weight:700}.flash .tr{font-size:22px;margin-top:12px}.flash .ex{color:var(--muted);margin-top:6px}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
