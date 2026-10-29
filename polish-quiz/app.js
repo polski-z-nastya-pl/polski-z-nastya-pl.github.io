@@ -277,7 +277,8 @@
         $app.innerHTML = `<h1>Слова</h1><p class="sub">На сегодня всё повторено. 🎉 Возвращайтесь завтра!</p>${navBar("cards")}`;
         return bindNav();
       }
-      let i = 0, known = 0;
+      let i = 0, known = 0, failed = 0, lastErr = "";
+      const saved = ({ error }) => { if (error) { failed++; lastErr = error.message; const el = $("warn"); if (el) el.textContent = "⚠️ Ответ не сохранился: " + error.message; } };
       const show = (flipped) => {
         const w = queue[i];
         $app.innerHTML = `
@@ -289,7 +290,8 @@
           </div>
           <div class="row">${flipped
             ? `<button class="btn alt" id="no">Не знал</button><button class="btn" id="yes">Знал</button>`
-            : `<button class="btn" id="flip">Показать перевод</button>`}</div>`;
+            : `<button class="btn" id="flip">Показать перевод</button>`}</div>
+          <p class="err" id="warn" style="text-align:center">${failed ? "⚠️ Ответ не сохранился: " + esc(lastErr) : ""}</p>`;
         on("back", home); on("say", () => speak(w.pl));
         on("flip", () => show(true));
         on("yes", () => rate(true)); on("no", () => rate(false));
@@ -298,10 +300,11 @@
         const w = queue[i], box = pm.get(w.id)?.box || 1;
         const nb = ok ? Math.min(5, box + 1) : 1;
         if (ok) known++;
-        sb.from("card_progress").upsert({ user_id: me.user.id, word_id: w.id, box: nb, due: addDays(INTERVALS[nb - 1]) }).then(({ error }) => error && console.error(error));
+        sb.from("card_progress").upsert({ user_id: me.user.id, word_id: w.id, box: nb, due: addDays(INTERVALS[nb - 1]), updated_at: new Date().toISOString() }).then(saved);
+        sb.from("card_reviews").insert({ word_id: w.id, ok }).then(saved);
         if (++i < queue.length) show(false);
         else {
-          $app.innerHTML = `<h1>Готово!</h1><div class="score">${known}/${queue.length}</div><p class="sub" style="text-align:center">слов вы знали</p>
+          $app.innerHTML = `<h1>Готово!</h1><div class="score">${known}/${queue.length}</div><p class="sub" style="text-align:center">слов вы знали</p>${failed ? `<p class="err" style="text-align:center">⚠️ Не все ответы сохранились (${esc(lastErr)}). Сообщите учителю.</p>` : `<p class="hint" style="text-align:center">Результат сохранён. Учитель видит ваш прогресс.</p>`}
             <div class="row"><button class="btn" id="home">К заданиям</button></div>`;
           on("home", home);
         }
@@ -312,7 +315,7 @@
 
   // ---------- панель учителя ----------
   function tabs(cur) {
-    const items = [["tests", "📝", "Тесты"], ["students", "👥", "Ученики"], ["words", "🃏", "Слова"], ["results", "📈", "Результаты"], ["check", "🧪", "Проверка"]];
+    const items = [["tests", "📝", "Тесты"], ["students", "👥", "Ученики"], ["words", "🃏", "Слова"], ["results", "📈", "Итоги"], ["check", "🧪", "Проба"]];
     return `${header('<button id="prev">👁 Как видит ученик</button>')}
       <nav class="nav" aria-label="Панель учителя">${items.map(([k, i, t]) =>
         `<button data-tab="${k}" class="${k === cur ? "on" : ""}" ${k === cur ? 'aria-current="page"' : ""}><span class="ni">${i}</span>${t}</button>`).join("")}</nav>`;
@@ -645,16 +648,29 @@
   }
 
   async function teacherWords() {
-    const [words, profs, prog] = await Promise.all([
+    const since = new Date(Date.now() - 30 * 864e5).toISOString();
+    const [words, profs, prog, reviews] = await Promise.all([
       must(sb.from("words").select("*").order("level").order("topic").order("pl")),
       must(sb.from("profiles").select("id,display_name,role").order("display_name")),
-      must(sb.from("card_progress").select("*"))]);
+      must(sb.from("card_progress").select("*")),
+      must(sb.from("card_reviews").select("user_id,ok,created_at").gte("created_at", since).order("created_at", { ascending: false }).limit(5000))]);
     const students = profs.filter((p) => p.role === "student");
     const byId = new Map(words.map((w) => [w.id, w])), t0 = today();
+    const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
+    const weekAgo = Date.now() - 7 * 864e5;
+    const when = (d) => {
+      if (!d) return "ещё не занимался";
+      const days = Math.round((startOfDay - new Date(new Date(d).setHours(0, 0, 0, 0))) / 864e5);
+      const time = new Date(d).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+      return days <= 0 ? `сегодня в ${time}` : days === 1 ? `вчера в ${time}` : new Date(d).toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
+    };
     const stats = students.map((p) => {
       const mine = prog.filter((c) => c.user_id === p.id && byId.has(c.word_id));
+      const rv = reviews.filter((r) => r.user_id === p.id);
+      const today_ = rv.filter((r) => new Date(r.created_at) >= startOfDay), week = rv.filter((r) => new Date(r.created_at).getTime() >= weekAgo);
       const learned = mine.filter((c) => c.box >= 4).length;
-      return { p, learned, learning: mine.length - learned, fresh: words.length - mine.length,
+      return { p, started: mine.length, learned, fresh: words.length - mine.length, last: rv[0]?.created_at || null,
+        todayN: today_.length, todayOk: today_.filter((r) => r.ok).length, weekN: week.length, weekOk: week.filter((r) => r.ok).length,
         due: words.length - mine.length + mine.filter((c) => c.due <= t0).length,
         hard: mine.filter((c) => c.box === 1).map((c) => byId.get(c.word_id).pl) };
     });
@@ -662,10 +678,12 @@
       <h1>Слова</h1>
       <h3 class="sec">Как ученики учат слова</h3>
       ${stats.length ? `<div class="list">${stats.map((x) => `<div class="li" style="cursor:default;align-items:stretch;flex-direction:column;gap:8px">
-        <span style="display:flex;justify-content:space-between;gap:8px"><b>${esc(x.p.display_name)}</b><small>выучено ${x.learned} из ${words.length}</small></span>
-        <span class="bar" style="margin:0"><i style="width:${words.length ? Math.round(x.learned / words.length * 100) : 0}%"></i></span>
-        <small>В процессе: ${x.learning} · не начато: ${x.fresh} · на повторение сегодня: ${x.due}${x.hard.length ? `<br>Не даются: ${esc(x.hard.slice(0, 8).join(", "))}${x.hard.length > 8 ? " …" : ""}` : ""}</small></div>`).join("")}</div>
-        <p class="hint" style="margin-top:8px">«Выучено» — слово, которое ученик несколько раз подряд назвал правильно. «Не даются» — ответ «не знал» в последний раз.</p>`
+        <span style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b>${esc(x.p.display_name)}</b><small>${esc(when(x.last))}</small></span>
+        <span class="bar" style="margin:0" title="начато слов"><i style="width:${words.length ? Math.round(x.started / words.length * 100) : 0}%"></i></span>
+        <small>Начато слов: <b>${x.started}</b> из ${words.length} · выучено: <b>${x.learned}</b> · на повторение сегодня: ${x.due}</small>
+        <small>Сегодня: <b>${x.todayN}</b> ${plural(x.todayN, "ответ", "ответа", "ответов")}${x.todayN ? ` (верно ${x.todayOk})` : ""} · за 7 дней: <b>${x.weekN}</b>${x.weekN ? ` (верно ${x.weekOk})` : ""}</small>
+        ${x.hard.length ? `<small>Не даются: ${esc(x.hard.slice(0, 8).join(", "))}${x.hard.length > 8 ? " …" : ""}</small>` : ""}</div>`).join("")}</div>
+        <p class="hint" style="margin-top:8px">Полоса показывает, сколько слов ученик уже начал учить. «Выучено» — слово, которое он назвал правильно несколько раз подряд в разные дни, поэтому это число растёт медленно. «Не даются» — слова с последним ответом «не знал».</p>`
         : `<div class="list"><div class="empty">Учеников пока нет. Когда они начнут проходить карточки, здесь появится прогресс.</div></div>`}
 
       <h3 class="sec">Словарь</h3>

@@ -15,7 +15,7 @@
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
 main{max-width:720px;margin:0 auto;padding:0 16px 32px}
-main:has(.nav){padding-bottom:104px}
+main:has(.nav){padding-bottom:96px}
 h1{margin:20px 0 4px;font-size:26px;line-height:1.2;font-weight:700;letter-spacing:-.01em}
 h2{margin:0 0 6px;font-size:20px;line-height:1.3;font-weight:650}
 h3{margin:0 0 6px;font-size:17px;font-weight:650}
@@ -115,9 +115,9 @@ details.acc+details.acc,.list>details+details{border-top:1px solid var(--line)}
 .flash{text-align:center;padding:36px 16px}.flash .w{font-size:32px;font-weight:700}.flash .tr{font-size:22px;margin-top:12px}.flash .ex{color:var(--muted);margin-top:6px}
 
 /* ----- нижняя навигация ----- */
-.nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;justify-content:center;gap:2px;padding:6px max(8px,calc((100vw - 720px)/2)) max(8px,env(safe-area-inset-bottom));background:var(--surface);border-top:1px solid var(--line)}
-.nav button{flex:1;max-width:150px;display:grid;justify-items:center;padding:6px 2px;border:0;border-radius:12px;background:none;color:var(--muted);font:inherit;font-size:12.5px;font-weight:550;cursor:pointer}
-.nav button.on{color:var(--accent);font-weight:700;background:var(--accent-soft)}.nav .ni{font-size:21px;line-height:1.25}
+.nav{position:fixed;z-index:30;left:50%;transform:translateX(-50%);bottom:max(10px,env(safe-area-inset-bottom));width:min(480px,calc(100% - 20px));display:flex;gap:2px;padding:5px;background:var(--surface);border:1px solid var(--line);border-radius:20px;box-shadow:0 8px 28px rgba(15,20,50,.16)}
+.nav button{flex:1 1 0;min-width:0;display:grid;justify-items:center;gap:1px;padding:6px 0 5px;border:0;border-radius:15px;background:none;color:var(--muted);font:inherit;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}
+.nav button.on{color:var(--accent);background:var(--accent-soft)}.nav .ni{font-size:19px;line-height:1.2}
 
 /* ----- прочее ----- */
 table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line)}
