@@ -14,7 +14,7 @@ const q = (s) => "'" + String(s).replace(/'/g, "''") + "'";
 const title = t.topic + (t.student ? ` (${t.student})` : '');
 const json = JSON.stringify(t);
 if (json.includes('$json$')) { console.error('В тексте теста есть запрещённая последовательность $json$'); process.exit(1); }
-console.log(`with t as (insert into public.tests (title,description,level,topic,published,for_all,created_by) values (${q(title)},${q('Создан ' + (t.created || '') + '. Черновик — проверить перед публикацией')},${q(level)},'Грамматика',false,false,null) returning id),
+console.log(`with t as (insert into public.tests (title,description,level,topic,published,for_all,created_by) values (${q(title)},${q(t.description || '')},${q(level)},'Грамматика',false,false,null) returning id),
 d as (select $json$${json}$json$::jsonb j)
 insert into public.questions (test_id,position,type,prompt,options,answer,answers,explain,task_title,task_instruction)
 select t.id, row_number() over (order by tko, qo), q->>'type', q->>'prompt', coalesce(q->'options','[]'::jsonb),

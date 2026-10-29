@@ -14,6 +14,7 @@ const mk = (over: Partial<Deps> = {}): Deps & { log: string[] } => {
     userByToken: async (t) => (t === "44444444-4444-4444-8444-444444444444" ? S : null),
     tokenHashFor: async () => "hash",
     setPassword: async (u, p) => { log.push("pw:" + u + ":" + p.length); },
+    deleteStudent: async (u) => { log.push("del:" + u); },
     addStudent: async (e, n, p) => { log.push("add:" + e + ":" + n + ":" + p.length); return e === "dup@x.com" ? null : "55555555-5555-4555-8555-555555555555"; },
     ...over,
   };
@@ -74,4 +75,15 @@ test("add_student: только учитель, проверка email, дубл
   assert.equal(ok.body.email, "yuliya@mail.com");
   assert.equal(ok.body.name, "Юлия");
   assert.match(ok.body.password as string, /^[a-km-np-z2-9]{10}$/);
+});
+
+test("delete_student: только учитель, не учителя", async () => {
+  const d = mk();
+  assert.equal((await handle({ action: "delete_student", user_id: S }, null, d)).status, 401);
+  assert.equal((await handle({ action: "delete_student", user_id: S }, "student-jwt", d)).status, 403);
+  assert.equal((await handle({ action: "delete_student", user_id: T }, "teacher-jwt", d)).status, 400);
+  assert.equal((await handle({ action: "delete_student", user_id: "x" }, "teacher-jwt", d)).status, 400);
+  assert.deepEqual(d.log, []);
+  assert.equal((await handle({ action: "delete_student", user_id: S }, "teacher-jwt", d)).status, 200);
+  assert.deepEqual(d.log, ["del:" + S]);
 });

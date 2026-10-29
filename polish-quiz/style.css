@@ -1,78 +1,127 @@
-:root{--bg:#f6f7fb;--card:#fff;--text:#1c2030;--muted:#6b7285;--accent:#d4213d;--accent-2:#2b5cd6;--ok:#1f9d55;--bad:#d4213d;--border:#e1e4ee}
-@media (prefers-color-scheme:dark){:root{--bg:#12141c;--card:#1c1f2b;--text:#eceef6;--muted:#9aa1b5;--border:#2c3042;--accent-2:#6f93ff}}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-main{max-width:640px;margin:0 auto;padding:20px 16px 48px}
-h1{margin:8px 0 4px;font-size:28px}
-.sub{color:var(--muted);margin:0 0 20px}
-.flag{display:inline-block;width:28px;height:18px;border-radius:3px;background:linear-gradient(#fff 50%,var(--accent) 50%);border:1px solid var(--border);vertical-align:-2px;margin-right:8px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
-.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;text-align:left;color:inherit;font:inherit;cursor:pointer;transition:transform .1s,border-color .1s}
-.card:hover{transform:translateY(-2px);border-color:var(--accent-2)}
-.card .ico{font-size:28px}.card b{display:block;margin-top:4px}.card small{color:var(--muted)}
-.card .best{display:block;margin-top:8px;font-size:13px;color:var(--accent-2)}
-.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
-.link{background:none;border:0;color:var(--accent-2);font:inherit;cursor:pointer;padding:4px 0}
-.bar{height:8px;background:var(--border);border-radius:99px;overflow:hidden;margin-bottom:20px}
-.bar i{display:block;height:100%;background:var(--accent-2);transition:width .25s}
-.q{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
-.q h2{margin:0 0 4px;font-size:22px}.hint{color:var(--muted);font-size:14px;margin:0 0 16px}
-.opts{display:grid;gap:10px}
-.opt,.btn{font:inherit;color:inherit;border:1px solid var(--border);background:var(--bg);border-radius:10px;padding:12px 14px;text-align:left;cursor:pointer}
-.opt:hover:not(:disabled){border-color:var(--accent-2)}
-.opt.ok{background:color-mix(in srgb,var(--ok) 18%,transparent);border-color:var(--ok)}
-.opt.bad{background:color-mix(in srgb,var(--bad) 16%,transparent);border-color:var(--bad)}
-.btn{background:var(--accent-2);border-color:var(--accent-2);color:#fff;text-align:center;font-weight:600}
-.btn.alt{background:var(--bg);color:var(--text);border-color:var(--border)}
-.row{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
-input[type=text],input[type=password]{width:100%;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
-.fb{margin-top:14px;padding:12px 14px;border-radius:10px;font-size:15px}
-.fb.ok{background:color-mix(in srgb,var(--ok) 15%,transparent)}.fb.bad{background:color-mix(in srgb,var(--bad) 13%,transparent)}
-.say{background:none;border:0;cursor:pointer;font-size:20px;vertical-align:middle}
-.score{font-size:56px;font-weight:800;text-align:center;margin:8px 0}
-.review{list-style:none;padding:0;margin:16px 0;display:grid;gap:8px}
-.review li{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:15px}
-.review .a{color:var(--ok)}.review .u{color:var(--bad)}
-.tabs{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
-.tab{font:inherit;color:inherit;background:var(--card);border:1px solid var(--border);border-radius:99px;padding:6px 14px;cursor:pointer}
-.tab.on{background:var(--accent-2);border-color:var(--accent-2);color:#fff}
-.field{display:grid;gap:4px;margin-bottom:12px;font-size:14px;color:var(--muted)}
-textarea,select{width:100%;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
-textarea{min-height:70px;resize:vertical}
-.badge{display:inline-block;font-size:12px;font-weight:700;padding:1px 8px;border-radius:99px;background:var(--accent-2);color:#fff;margin-right:6px}
-.badge.off{background:var(--muted)}
-.item{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px}
-.item .row{margin-top:8px}
-.btn.sm,.btn.danger{padding:6px 12px;font-size:14px}
-.btn.danger{background:var(--bad);border-color:var(--bad)}
-.err{color:var(--bad);font-size:14px;min-height:20px}
-.flash{text-align:center;padding:36px 16px}.flash .w{font-size:32px;font-weight:700}.flash .tr{font-size:22px;margin-top:12px}.flash .ex{color:var(--muted);margin-top:6px}
-table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
-.qbox{margin:0 0 22px}.prompt{font-weight:600;margin:0 0 10px}
-.qopt{display:flex;gap:12px;align-items:center;min-height:52px;padding:10px 14px;margin:8px 0;border:2px solid var(--border);border-radius:14px;cursor:pointer;background:var(--card)}
-.qopt input{width:22px;height:22px;flex:none;accent-color:var(--accent-2)}
-.qopt.sel{border-color:var(--accent-2)}.qopt.ok{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 16%,transparent)}
-.qopt.bad{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}.qopt.miss{border-color:var(--ok);border-style:dashed}
-.keys{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
-.keys button{min-width:44px;min-height:44px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font:inherit;font-size:20px;cursor:pointer}
-input[type=text].ok{border-color:var(--ok)}input[type=text].bad{border-color:var(--bad)}input[type=text].almost{border-color:#d49a00}
-.fb.almost{background:color-mix(in srgb,#d49a00 18%,transparent)}.fb .why{display:block;margin-top:6px}
+/* ---------- Polski Quiz: дизайн-система ---------- */
+:root{
+  --bg:#f4f5f9;--surface:#fff;--surface-2:#f1f3f9;--text:#171b2e;--muted:#6a7189;--line:#e3e6ef;
+  --accent:#3b5bdb;--accent-soft:#e8edff;--on-accent:#fff;
+  --ok:#1b8a4b;--ok-soft:#e3f4ea;--bad:#d03a3a;--bad-soft:#fdeaea;--warn:#a96a00;--warn-soft:#fff2d6;
+  --shadow:0 1px 2px rgba(20,24,50,.05),0 6px 18px rgba(20,24,50,.05);--r:14px;
+  /* алиасы для обратной совместимости */
+  --card:var(--surface);--border:var(--line);--accent-2:var(--accent);
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0e1120;--surface:#171b2d;--surface-2:#1f2438;--text:#e8ebf5;--muted:#9099b4;--line:#2a3050;
+  --accent:#8aa0ff;--accent-soft:#222a4d;--on-accent:#0e1120;
+  --ok:#4fc983;--ok-soft:#16352a;--bad:#ff7b7b;--bad-soft:#3b1f24;--warn:#f0b64d;--warn-soft:#3a2f17;--shadow:none}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:720px;margin:0 auto;padding:0 16px 32px}
+main:has(.nav){padding-bottom:104px}
+h1{margin:20px 0 4px;font-size:26px;line-height:1.2;font-weight:700;letter-spacing:-.01em}
+h2{margin:0 0 6px;font-size:20px;line-height:1.3;font-weight:650}
+h3{margin:0 0 6px;font-size:17px;font-weight:650}
+.sub{color:var(--muted);margin:0 0 16px}
+.hint{color:var(--muted);font-size:14px;margin:0 0 12px}
+.sec{margin:26px 0 10px;font-size:12.5px;color:var(--muted);font-weight:650;text-transform:uppercase;letter-spacing:.07em}
+.flag{display:inline-block;width:28px;height:18px;border-radius:3px;background:linear-gradient(#fff 50%,#dc143c 50%);border:1px solid var(--line);vertical-align:-2px;margin-right:8px}
+small{font-size:13.5px;color:var(--muted)}
+b{font-weight:650}
+
+/* ----- шапка и меню ----- */
+.appbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 -16px;padding:10px 16px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid transparent}
+.who{display:flex;align-items:center;gap:10px;min-width:0}
+.who>span:last-child{display:grid;line-height:1.2;min-width:0}
+.who b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.avatar{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:14px}
+.menu{position:relative}
+.menu summary{list-style:none;cursor:pointer;width:40px;height:40px;display:grid;place-items:center;border-radius:12px;font-size:22px;color:var(--muted);user-select:none}
+.menu summary::-webkit-details-marker{display:none}
+.menu summary:hover,.menu[open] summary{background:var(--surface-2)}
+.menu-pop{position:absolute;right:0;top:46px;min-width:210px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(15,20,50,.18);padding:6px;display:grid}
+.menu-pop button{border:0;background:none;text-align:left;font:inherit;color:var(--text);padding:11px 12px;border-radius:10px;cursor:pointer}
+.menu-pop button:hover{background:var(--surface-2)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 0 4px}
+.link{background:none;border:0;color:var(--accent);font:inherit;font-weight:550;cursor:pointer;padding:6px 0}
+.link:hover{text-decoration:underline}
+
+/* ----- кнопки и поля ----- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:48px;padding:0 18px;border:0;border-radius:12px;background:var(--accent);color:var(--on-accent);font:inherit;font-weight:600;cursor:pointer;text-align:center;text-decoration:none}
+.btn:hover{filter:brightness(1.06)}.btn:disabled{opacity:.5;cursor:default}
+.btn.alt{background:var(--surface);color:var(--text);border:1px solid var(--line)}
+.btn.alt:hover{background:var(--surface-2);filter:none}
+.btn.danger{background:var(--bad-soft);color:var(--bad)}
+.btn.sm{min-height:38px;padding:0 14px;font-size:14.5px;border-radius:10px}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.row>.btn:not(.sm){flex:1 1 140px}
+.field{display:grid;gap:6px;margin:0 0 14px;font-size:13.5px;font-weight:550;color:var(--muted)}
+input[type=text],input[type=password],textarea,select{width:100%;min-height:46px;padding:10px 14px;font:inherit;font-weight:400;color:var(--text);background:var(--surface);border:1px solid var(--line);border-radius:12px}
+textarea{min-height:84px;resize:vertical;line-height:1.45}
+select{width:auto;max-width:100%}
+input:focus,textarea:focus,select:focus{outline:2px solid color-mix(in srgb,var(--accent) 45%,transparent);outline-offset:0;border-color:var(--accent)}
+input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
+input[type=text].ok{border-color:var(--ok);background:var(--ok-soft)}input[type=text].bad{border-color:var(--bad);background:var(--bad-soft)}input[type=text].almost{border-color:var(--warn);background:var(--warn-soft)}
 .pw{position:relative;display:block}.pw input{padding-right:52px}
 .eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:44px;height:44px;border:0;background:none;font-size:20px;cursor:pointer;opacity:.55}
+.err{color:var(--bad);font-size:14px;min-height:20px;margin-top:6px}
 
-/* ---- интерфейс ученика ---- */
-.sec{margin:22px 0 8px;font-size:15px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-.task{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:72px;text-align:left;margin:0 0 10px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:16px;color:inherit;font:inherit;cursor:pointer}
-.task:hover:not(.static){border-color:var(--accent-2)}
-.task.static{cursor:default}.task.words{border-style:dashed}
-.task-main{display:grid;gap:2px;min-width:0}.task-main b{font-size:18px}.task-main small,.task-side small{color:var(--muted);font-size:14px}
-.task-side{display:grid;justify-items:end;gap:2px;flex:none}
-.chip{display:inline-block;padding:3px 10px;border-radius:99px;font-size:14px;font-weight:700}
-.chip.new{background:var(--accent-2);color:#fff}.chip.ok{background:color-mix(in srgb,var(--ok) 20%,transparent);color:var(--ok)}.chip.mid{background:color-mix(in srgb,#d49a00 22%,transparent);color:#a86a00}
-.nav{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:4px;padding:6px 8px max(8px,env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--border);z-index:10}
-.nav button{flex:1;max-width:160px;display:grid;justify-items:center;gap:0;padding:6px 4px;border:0;border-radius:12px;background:none;color:var(--muted);font:inherit;font-size:13px;cursor:pointer}
-.nav button.on{color:var(--accent-2);font-weight:700;background:color-mix(in srgb,var(--accent-2) 10%,transparent)}.nav .ni{font-size:22px;line-height:1.2}
-.btn{min-height:52px}
-main:has(.nav){padding-bottom:96px}
-.top{flex-wrap:wrap}
-a.btn{display:inline-flex;align-items:center;justify-content:center;padding:12px 14px;border-radius:14px;min-height:52px}
+/* ----- карточки и списки ----- */
+.q,.item{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--shadow)}
+.item{margin-bottom:10px;padding:14px 16px}
+.list{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.li{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:13px 16px;background:none;border:0;border-top:1px solid var(--line);color:inherit;font:inherit;text-align:left;cursor:pointer}
+.list>.li:first-child,.list>details:first-child>summary.li{border-top:0}
+button.li:hover,summary.li:hover{background:var(--surface-2)}
+.li-main{display:grid;gap:1px;min-width:0}.li-main b{font-weight:600;overflow-wrap:anywhere}
+.li-side{display:flex;align-items:center;gap:8px;flex:none;color:var(--muted);font-size:14px}
+details.acc>summary{list-style:none}details.acc>summary::-webkit-details-marker{display:none}
+details.acc .chev{transition:transform .15s;color:var(--muted)}details.acc[open] .chev{transform:rotate(90deg)}
+details.acc+details.acc,.list>details+details{border-top:1px solid var(--line)}
+.acc-body{padding:4px 16px 16px;background:var(--surface-2);border-top:1px solid var(--line)}
+.acc-body .row{margin-top:10px}
+.checks{display:grid;gap:2px;margin:6px 0 4px}
+.checks label{display:flex;align-items:center;gap:10px;min-height:40px;padding:4px 6px;border-radius:8px;font-size:15px;cursor:pointer}
+.checks label:hover{background:var(--surface)}
+.checks input{width:19px;height:19px;flex:none}
+.empty{padding:28px 16px;text-align:center;color:var(--muted)}
+.badge{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.02em;padding:2px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent);margin-right:6px;vertical-align:1px}
+.badge.off{background:var(--surface-2);color:var(--muted)}
+.chip{display:inline-block;padding:3px 10px;border-radius:99px;font-size:13px;font-weight:650;white-space:nowrap}
+.chip.new{background:var(--accent);color:var(--on-accent)}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}.chip.mid{background:var(--warn-soft);color:var(--warn)}
+.chip.off{background:var(--surface-2);color:var(--muted)}
+
+/* ----- задания ученика ----- */
+.task{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:72px;text-align:left;margin:0 0 10px;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);color:inherit;font:inherit;cursor:pointer}
+.task:hover:not(.static){border-color:var(--accent)}
+.task.static{cursor:default}.task.words{border-style:dashed;box-shadow:none}
+.task-main{display:grid;gap:2px;min-width:0}.task-main b{font-size:17px}
+.task-side{display:grid;justify-items:end;gap:3px;flex:none}.task-side small{font-size:13.5px}
+
+/* ----- прохождение теста ----- */
+.bar{height:6px;background:var(--line);border-radius:99px;overflow:hidden;margin:6px 0 16px}.bar i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .25s}
+.qbox{margin:0 0 22px}.qbox:last-child{margin-bottom:6px}.prompt{font-weight:600;margin:0 0 10px;font-size:17px}
+.qopt{display:flex;gap:12px;align-items:center;min-height:52px;padding:10px 14px;margin:8px 0;border:1.5px solid var(--line);border-radius:12px;cursor:pointer;background:var(--surface)}
+.qopt input{width:22px;height:22px;flex:none}
+.qopt.sel{border-color:var(--accent);background:var(--accent-soft)}.qopt.ok{border-color:var(--ok);background:var(--ok-soft)}
+.qopt.bad{border-color:var(--bad);background:var(--bad-soft)}.qopt.miss{border-color:var(--ok);border-style:dashed}
+.keys{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.keys button{min-width:42px;min-height:42px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--text);font:inherit;font-size:19px;cursor:pointer}
+.fb{margin-top:10px;padding:12px 14px;border-radius:12px;font-size:15px;background:var(--surface-2)}
+.fb.ok{background:var(--ok-soft)}.fb.bad{background:var(--bad-soft)}.fb.almost{background:var(--warn-soft)}.fb .why{display:block;margin-top:6px;color:var(--text)}
+.say{background:none;border:0;cursor:pointer;font-size:20px;vertical-align:middle}
+.score{font-size:56px;font-weight:800;text-align:center;margin:8px 0 0;letter-spacing:-.02em}
+.review{list-style:none;padding:0;margin:12px 0;display:grid;gap:8px}
+.review li{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:15px}
+.review .a{color:var(--ok);font-weight:600}.review .u{color:var(--bad);font-weight:600}
+.flash{text-align:center;padding:36px 16px}.flash .w{font-size:32px;font-weight:700}.flash .tr{font-size:22px;margin-top:12px}.flash .ex{color:var(--muted);margin-top:6px}
+
+/* ----- нижняя навигация ----- */
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;justify-content:center;gap:2px;padding:6px max(8px,calc((100vw - 720px)/2)) max(8px,env(safe-area-inset-bottom));background:var(--surface);border-top:1px solid var(--line)}
+.nav button{flex:1;max-width:150px;display:grid;justify-items:center;padding:6px 2px;border:0;border-radius:12px;background:none;color:var(--muted);font:inherit;font-size:12.5px;font-weight:550;cursor:pointer}
+.nav button.on{color:var(--accent);font-weight:700;background:var(--accent-soft)}.nav .ni{font-size:21px;line-height:1.25}
+
+/* ----- прочее ----- */
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line)}
+details>summary{cursor:pointer}
+.tabs{display:none}
+.chev{font-size:22px;line-height:1}
+.link+.link{margin-left:14px}

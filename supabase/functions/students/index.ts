@@ -56,6 +56,12 @@ const deps = {
     }
     return r.data.user.id;
   },
+  async deleteStudent(userId: string) {
+    const { data } = await admin.from("profiles").select("email").eq("id", userId).maybeSingle();
+    if (data?.email) await admin.from("allowed_emails").delete().eq("email", data.email);
+    const { error } = await admin.auth.admin.deleteUser(userId);
+    if (error) throw new Error(error.message);
+  },
   async tokenHashFor(userId: string) {
     const email = must(await admin.auth.admin.getUserById(userId)).user.email!;
     const r = await admin.auth.admin.generateLink({ type: "magiclink", email });

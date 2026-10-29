@@ -9,6 +9,7 @@ export type Deps = {
   tokenHashFor(userId: string): Promise<string>; // одноразовый хэш для verifyOtp
   setPassword(userId: string, password: string): Promise<void>;
   addStudent(email: string, name: string, password: string): Promise<string | null>; // null — такой email уже есть
+  deleteStudent(userId: string): Promise<void>;
 };
 
 export type Req = { action?: string; token?: string; name?: string; user_id?: string; email?: string };
@@ -31,7 +32,7 @@ export async function handle(req: Req, bearer: string | null, d: Deps): Promise<
     return { status: 200, body: { token_hash: await d.tokenHashFor(userId) } };
   }
 
-  if (req.action === "invite" || req.action === "regenerate" || req.action === "set_password" || req.action === "add_student") {
+  if (req.action === "invite" || req.action === "regenerate" || req.action === "set_password" || req.action === "add_student" || req.action === "delete_student") {
     const caller = bearer ? await d.getCaller(bearer) : null;
     if (!caller) return err(401, "Нужно войти");
     if (!(await d.isTeacher(caller))) return err(403, "Только для учителя");
@@ -55,6 +56,10 @@ export async function handle(req: Req, bearer: string | null, d: Deps): Promise<
 
     if (!req.user_id || !UUID.test(req.user_id)) return err(400, "Не указан ученик");
     if (await d.isTeacher(req.user_id)) return err(400, "Для учителя это действие недоступно");
+    if (req.action === "delete_student") {
+      await d.deleteStudent(req.user_id);
+      return { status: 200, body: { ok: true } };
+    }
     if (req.action === "set_password") {
       const password = randomPassword();
       await d.setPassword(req.user_id, password);
