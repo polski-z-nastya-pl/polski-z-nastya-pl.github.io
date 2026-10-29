@@ -426,24 +426,70 @@
     if (error) { box.checked = !on; alert("Не удалось сохранить: " + error.message); }
   }
 
+  // ---------- личные ссылки учеников ----------
+  async function callFn(body) {
+    const { data: { session } } = await sb.auth.getSession();
+    const r = await fetch(CFG.url + "/functions/v1/students", { method: "POST",
+      headers: { "Content-Type": "application/json", apikey: CFG.key, ...(session ? { Authorization: "Bearer " + session.access_token } : {}) },
+      body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || "Ошибка " + r.status);
+    return j;
+  }
+  const inviteUrl = (token) => location.origin + location.pathname + "#invite=" + token;
+
+  function showLink(name, token) {
+    const url = inviteUrl(token);
+    $app.innerHTML = `<div class="top"><button class="link" id="back">← К ученикам</button><span>Ссылка для входа</span></div>
+      <div class="q">
+        <h2>${esc(name)}</h2>
+        <p class="hint">Отправьте эту ссылку ученику. Открыв её, он сразу окажется в приложении и больше не будет входить заново. Ссылка личная — не публикуйте её.</p>
+        <input type="text" id="lk" readonly value="${esc(url)}" onfocus="this.select()">
+        <div class="row"><button class="btn" id="cp">Скопировать</button></div>
+        <div class="err" id="er"></div>
+      </div>`;
+    on("back", teacherStudents);
+    on("cp", async () => {
+      try { await navigator.clipboard.writeText(url); $("er").style.color = "var(--ok)"; $("er").textContent = "Скопировано"; }
+      catch { $("lk").select(); $("er").textContent = "Выделено — нажмите «Копировать» в меню телефона."; }
+    });
+  }
+
   async function teacherStudents() {
-    const [profs, tests, asg] = await Promise.all([
+    const [profs, tests, asg, invs] = await Promise.all([
       must(sb.from("profiles").select("*").order("display_name")),
       must(sb.from("tests").select("id,title,level,published,for_all").order("level").order("title")),
-      must(sb.from("test_assignments").select("*"))]);
+      must(sb.from("test_assignments").select("*")),
+      must(sb.from("student_invites").select("*"))]);
     const has = new Set(asg.map((a) => a.test_id + ":" + a.user_id));
+    const invOf = Object.fromEntries(invs.map((i) => [i.user_id, i.token]));
     $app.innerHTML = `${tabs("students")}
+      <div class="row" style="margin:0 0 12px"><button class="btn sm" id="inv">+ Пригласить ученика</button></div>
       <p class="hint">Здесь Настя назначает роль и выбирает, какие тесты видит каждый ученик. Новые пользователи регистрируются сами и по умолчанию — ученики.</p>
       ${profs.map((p) => `<div class="item"><b>${esc(p.display_name)}</b>
         <select data-role="${p.id}" style="width:auto;margin-left:8px" ${p.id === me.user.id ? "disabled" : ""}>
           <option value="student" ${p.role === "student" ? "selected" : ""}>ученик</option>
           <option value="teacher" ${p.role === "teacher" ? "selected" : ""}>учитель</option></select>
+        ${p.role === "student" ? (invOf[p.id]
+          ? `<button class="link" data-link="${p.id}">🔗 Ссылка</button> <button class="link" data-newlink="${p.id}">↻ Новая</button>`
+          : `<button class="link" data-newlink="${p.id}">🔗 Создать ссылку</button>`) : ""}
         ${p.role === "student" ? `<div style="margin-top:8px">${tests.map((t) => `<label style="display:flex;gap:8px;align-items:center;font-size:14px">
           <input type="checkbox" data-t="${t.id}" data-u="${p.id}" ${has.has(t.id + ":" + p.id) ? "checked" : ""}>
           <span class="badge">${t.level}</span>${esc(t.title)}${t.for_all ? " <small>(доступен всем)</small>" : ""}${t.published ? "" : " <small>(черновик)</small>"}</label>`).join("") || "<small>Тестов нет</small>"}</div>` : ""}
       </div>`).join("")}`;
     bindTabs();
     $app.querySelectorAll("[data-t]").forEach((c) => c.onchange = () => setAssign(c.dataset.t, c.dataset.u, c.checked, c));
+    on("inv", async () => {
+      const name = (prompt("Имя ученика:") || "").trim();
+      if (!name) return;
+      try { const r = await callFn({ action: "invite", name }); showLink(name, r.token); } catch (e) { alert("Не удалось: " + e.message); }
+    });
+    const nameOf = (id) => profs.find((p) => p.id === id)?.display_name || "";
+    $app.querySelectorAll("[data-link]").forEach((b) => b.onclick = () => showLink(nameOf(b.dataset.link), invOf[b.dataset.link]));
+    $app.querySelectorAll("[data-newlink]").forEach((b) => b.onclick = async () => {
+      if (invOf[b.dataset.newlink] && !confirm("Старая ссылка перестанет работать. Создать новую?")) return;
+      try { const r = await callFn({ action: "regenerate", user_id: b.dataset.newlink }); showLink(nameOf(b.dataset.newlink), r.token); } catch (e) { alert("Не удалось: " + e.message); }
+    });
     $app.querySelectorAll("[data-role]").forEach((sel) => sel.onchange = async () => {
       const { error } = await sb.from("profiles").update({ role: sel.value }).eq("id", sel.dataset.role);
       if (error) alert("Не удалось сохранить: " + error.message);
@@ -492,13 +538,35 @@
   }
 
   // ---------- старт ----------
+  let claiming = false;
   async function route(session) {
     if (!session) { me.user = null; me.profile = null; return authView(); }
     me.user = session.user;
     try { await loadProfile(); home(); } catch (e) { fail(e); }
   }
   sb.auth.onAuthStateChange((event, session) => {
+    if (claiming) return;
     if (event === "SIGNED_IN" && session && me.user?.id === session.user.id) return; // обновление токена/возврат на вкладку
     if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "SIGNED_OUT") setTimeout(() => route(session), 0);
   });
+
+  // Личная ссылка вида #invite=<token>: обмениваем токен на сессию и убираем его из адресной строки.
+  const m = location.hash.match(/^#invite=([0-9a-f-]{36})$/i);
+  if (m) {
+    claiming = true;
+    $app.innerHTML = `<p class="sub">Входим…</p>`;
+    (async () => {
+      try {
+        const { token_hash } = await callFn({ action: "claim", token: m[1] });
+        const { data, error } = await sb.auth.verifyOtp({ token_hash, type: "magiclink" });
+        if (error) throw error;
+        window.history.replaceState(null, "", location.pathname);
+        claiming = false;
+        route(data.session);
+      } catch (e) {
+        claiming = false;
+        $app.innerHTML = `<p class="err">Не удалось войти по ссылке: ${esc(e.message)}</p><p class="sub">Попросите учителя прислать новую ссылку.</p>`;
+      }
+    })();
+  }
 })();
