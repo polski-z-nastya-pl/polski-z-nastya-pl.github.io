@@ -43,6 +43,10 @@ const deps = {
     const { data } = await admin.from("student_invites").select("user_id").eq("token", token).maybeSingle();
     return data?.user_id ?? null;
   },
+  async setPassword(userId: string, password: string) {
+    const { error } = await admin.auth.admin.updateUserById(userId, { password });
+    if (error) throw new Error(error.message);
+  },
   async tokenHashFor(userId: string) {
     const email = must(await admin.auth.admin.getUserById(userId)).user.email!;
     const r = await admin.auth.admin.generateLink({ type: "magiclink", email });

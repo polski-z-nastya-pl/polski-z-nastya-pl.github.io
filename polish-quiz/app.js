@@ -36,6 +36,7 @@
         <label class="field">Пароль (от 6 символов)
           <span class="pw"><input type="password" id="pw" autocomplete="${reg ? "new-password" : "current-password"}" minlength="6" required>
           <button type="button" id="eye" class="eye" aria-label="Показать пароль" aria-pressed="false">👁</button></span></label>
+        ${reg ? `<p class="hint">Регистрация только для учеников, чей email добавила учитель.</p>` : ""}
         <div class="err" id="er"></div>
         <button class="btn" type="submit" style="width:100%">${reg ? "Создать аккаунт" : "Войти"}</button>
       </form>`;
@@ -53,7 +54,12 @@
       const r = reg
         ? await sb.auth.signUp({ email, password, options: { data: { display_name: $("nm").value.trim() } } })
         : await sb.auth.signInWithPassword({ email, password });
-      if (r.error) { $("er").textContent = r.error.message; return; }
+      if (r.error) {
+        const m = r.error.message || "";
+        $("er").textContent = reg && /database error|invitation|приглашению/i.test(m) ? "Этого email нет в списке. Попросите учителя добавить вас."
+          : /invalid login/i.test(m) ? "Неверный email или пароль." : m;
+        return;
+      }
       if (reg && !r.data.session) { $("er").style.color = "var(--ok)"; $("er").textContent = "Готово! Подтвердите email по письму и войдите."; return; }
     };
   }
@@ -464,21 +470,41 @@
     });
   }
 
+  function showPassword(p, password) {
+    $app.innerHTML = `<div class="top"><button class="link" id="back">← К ученикам</button><span>Новый пароль</span></div>
+      <div class="q"><h2>${esc(p.display_name)}</h2>
+        <p class="hint">Отправьте ученику: вход по email <b>${esc(p.email)}</b> и этому паролю. Пароль показывается один раз.</p>
+        <input type="text" id="pwv" readonly value="${esc(password)}" onfocus="this.select()" style="font-size:24px;letter-spacing:2px">
+        <div class="row"><button class="btn" id="cp">Скопировать</button></div><div class="err" id="er"></div></div>`;
+    on("back", teacherStudents);
+    on("cp", async () => { try { await navigator.clipboard.writeText(password); $("er").style.color = "var(--ok)"; $("er").textContent = "Скопировано"; } catch { $("pwv").select(); } });
+  }
+
   async function teacherStudents() {
-    const [profs, tests, asg, invs] = await Promise.all([
+    const [profs, tests, asg, invs, allowed] = await Promise.all([
       must(sb.from("profiles").select("*").order("display_name")),
       must(sb.from("tests").select("id,title,level,published,for_all").order("level").order("title")),
       must(sb.from("test_assignments").select("*")),
-      must(sb.from("student_invites").select("*"))]);
+      must(sb.from("student_invites").select("*")),
+      must(sb.from("allowed_emails").select("*").order("created_at"))]);
+    const registered = new Set(profs.map((p) => p.email).filter(Boolean));
+    const pending = allowed.filter((a) => !registered.has(a.email));
     const has = new Set(asg.map((a) => a.test_id + ":" + a.user_id));
     const invOf = Object.fromEntries(invs.map((i) => [i.user_id, i.token]));
     $app.innerHTML = `${tabs("students")}
-      <div class="row" style="margin:0 0 12px"><button class="btn sm" id="inv">+ Пригласить ученика</button></div>
-      <p class="hint">Здесь Настя назначает роль и выбирает, какие тесты видит каждый ученик. Новые пользователи регистрируются сами и по умолчанию — ученики.</p>
-      ${profs.map((p) => `<div class="item"><b>${esc(p.display_name)}</b>
+      <div class="q" style="margin-bottom:14px">
+        <b>Добавить ученика по почте</b>
+        <p class="hint">Впишите email ученика. После этого он сам регистрируется в приложении с этим email и своим паролем (вкладка «Регистрация»). Остальным регистрация закрыта.</p>
+        <div class="row" style="margin:0"><input type="text" id="ae" placeholder="email ученика" inputmode="email" autocapitalize="off" style="flex:2;min-width:180px"><button class="btn sm" id="aa">Добавить</button></div>
+        <div class="err" id="aer"></div>
+        ${pending.length ? `<p class="hint" style="margin-top:10px">Ждут регистрации:</p>${pending.map((a) => `<div style="display:flex;justify-content:space-between;align-items:center;font-size:15px"><span>${esc(a.email)}</span><button class="link" data-del="${esc(a.email)}">убрать</button></div>`).join("")}` : ""}
+      </div>
+      <div class="row" style="margin:0 0 12px"><button class="btn sm alt" id="inv">+ Ученик без почты (по ссылке)</button></div>
+      ${profs.map((p) => `<div class="item"><b>${esc(p.display_name)}</b>${p.email ? ` <small>${esc(p.email)}</small>` : ""}
         <select data-role="${p.id}" style="width:auto;margin-left:8px" ${p.id === me.user.id ? "disabled" : ""}>
           <option value="student" ${p.role === "student" ? "selected" : ""}>ученик</option>
           <option value="teacher" ${p.role === "teacher" ? "selected" : ""}>учитель</option></select>
+        ${p.role === "student" && p.email ? `<button class="link" data-pw="${p.id}">🔑 Новый пароль</button>` : ""}
         ${p.role === "student" ? (invOf[p.id]
           ? `<button class="link" data-link="${p.id}">🔗 Ссылка</button> <button class="link" data-newlink="${p.id}">↻ Новая</button>`
           : `<button class="link" data-newlink="${p.id}">🔗 Создать ссылку</button>`) : ""}
@@ -488,6 +514,23 @@
       </div>`).join("")}`;
     bindTabs();
     $app.querySelectorAll("[data-t]").forEach((c) => c.onchange = () => setAssign(c.dataset.t, c.dataset.u, c.checked, c));
+    on("aa", async () => {
+      const email = $("ae").value.trim().toLowerCase(), er = $("aer");
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { er.style.color = "var(--bad)"; er.textContent = "Проверьте email."; return; }
+      const { error } = await sb.from("allowed_emails").upsert({ email });
+      if (error) { er.style.color = "var(--bad)"; er.textContent = error.message; return; }
+      teacherStudents();
+    });
+    $app.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => {
+      if (confirm("Убрать " + b.dataset.del + " из списка? Он не сможет зарегистрироваться.")) {
+        await must(sb.from("allowed_emails").delete().eq("email", b.dataset.del)); teacherStudents();
+      }
+    });
+    $app.querySelectorAll("[data-pw]").forEach((b) => b.onclick = async () => {
+      if (!confirm("Задать ученику новый пароль? Старый перестанет работать.")) return;
+      try { const r = await callFn({ action: "set_password", user_id: b.dataset.pw }); showPassword(profs.find((p) => p.id === b.dataset.pw), r.password); }
+      catch (e) { alert("Не удалось: " + e.message); }
+    });
     on("inv", async () => {
       const name = (prompt("Имя ученика:") || "").trim();
       if (!name) return;

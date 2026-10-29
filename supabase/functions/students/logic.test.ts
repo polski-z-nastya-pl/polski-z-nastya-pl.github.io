@@ -13,6 +13,7 @@ const mk = (over: Partial<Deps> = {}): Deps & { log: string[] } => {
     newInvite: async (u) => { log.push("invite:" + u); return "44444444-4444-4444-8444-444444444444"; },
     userByToken: async (t) => (t === "44444444-4444-4444-8444-444444444444" ? S : null),
     tokenHashFor: async () => "hash",
+    setPassword: async (u, p) => { log.push("pw:" + u + ":" + p.length); },
     ...over,
   };
 };
@@ -47,4 +48,16 @@ test("regenerate: ученику можно, учителю и мусору не
 
 test("неизвестное действие", async () => {
   assert.equal((await handle({ action: "drop" }, "teacher-jwt", mk())).status, 400);
+});
+
+test("set_password: только учитель, не для учителя, пароль 8 символов без неоднозначных букв", async () => {
+  const d = mk();
+  assert.equal((await handle({ action: "set_password", user_id: S }, null, d)).status, 401);
+  assert.equal((await handle({ action: "set_password", user_id: S }, "student-jwt", d)).status, 403);
+  assert.equal((await handle({ action: "set_password", user_id: T }, "teacher-jwt", d)).status, 400);
+  assert.deepEqual(d.log, []);
+  const r = await handle({ action: "set_password", user_id: S }, "teacher-jwt", d);
+  assert.equal(r.status, 200);
+  assert.match(r.body.password as string, /^[a-km-np-z2-9]{8}$/);
+  assert.deepEqual(d.log, ["pw:" + S + ":8"]);
 });
