@@ -1,0 +1,78 @@
+{
+  "topic": "Rzeczownik",
+  "student": "Юлия",
+  "created": "2026-10-29",
+  "tasks": [
+    {
+      "title": "Ten, ta czy to?",
+      "instruction_ru": "Выбери правильный указатель рода: ten / ta / to.",
+      "questions": [
+        { "id": "q1", "type": "choice", "prompt": "___ zdjęcie", "options": ["ten", "ta", "to"], "answer": "to",
+          "explanation_ru": "Zdjęcie оканчивается на -e (-cie): это средний род, to zdjęcie." },
+        { "id": "q2", "type": "choice", "prompt": "___ wiadomość", "options": ["ten", "ta", "to"], "answer": "ta",
+          "explanation_ru": "Слова на -ość всегда женского рода: ta wiadomość." },
+        { "id": "q3", "type": "choice", "prompt": "___ poeta", "options": ["ten", "ta", "to"], "answer": "ten",
+          "explanation_ru": "Poeta — мужчина, поэтому род мужской, хотя слово оканчивается на -a: ten poeta." },
+        { "id": "q4", "type": "choice", "prompt": "___ ból", "options": ["ten", "ta", "to"], "answer": "ten",
+          "explanation_ru": "Род отличается от русского: «боль» женского рода, а ból — мужского: ten ból." }
+      ]
+    },
+    {
+      "title": "Liczba mnoga — rzeczy i kobiety",
+      "instruction_ru": "Впиши форму множественного числа (niemęskoosobowe).",
+      "questions": [
+        { "id": "q5", "type": "input", "prompt": "Jedna noga, dwie ___.", "answer": ["nogi"],
+          "explanation_ru": "Слова на -ga меняют окончание на -gi: noga → nogi." },
+        { "id": "q6", "type": "input", "prompt": "Jedno morze, dwa ___.", "answer": ["morza"],
+          "explanation_ru": "Средний род на -e получает во множественном числе -a: morze → morza." },
+        { "id": "q7", "type": "input", "prompt": "Jeden dom, dwa ___.", "answer": ["domy"],
+          "explanation_ru": "После твёрдого согласного ставится -y: dom → domy." },
+        { "id": "q8", "type": "input", "prompt": "Jedno centrum, dwa ___.", "answer": ["centra"],
+          "explanation_ru": "Слова на -um во множественном числе получают -a: centrum → centra." }
+      ]
+    },
+    {
+      "title": "Liczba mnoga — mężczyźni i wyjątki",
+      "instruction_ru": "Выбери правильную форму множественного числа.",
+      "questions": [
+        { "id": "q9", "type": "choice", "prompt": "W naszej firmie jest dużo miłych ___. (pracownik)", "options": ["pracowniki", "pracownicy", "pracownice"], "answer": "pracownicy",
+          "explanation_ru": "Мужское лицо: окончание -k даёт -cy: pracownik → pracownicy." },
+        { "id": "q10", "type": "choice", "prompt": "Moi ___ są bardzo sympatyczni. (kolega)", "options": ["kolegi", "koledzy", "kolegowie"], "answer": "koledzy",
+          "explanation_ru": "Мужское лицо: -g даёт -dzy: kolega → koledzy." },
+        { "id": "q11", "type": "choice", "prompt": "Wszyscy ___ lubią pierogi. (Polak)", "options": ["Polaki", "Polacy", "Polakowie"], "answer": "Polacy",
+          "explanation_ru": "Мужское лицо: -k даёт -cy: Polak → Polacy." },
+        { "id": "q12", "type": "choice", "prompt": "Te ___ są piękne. (ręka)", "options": ["ręki", "ręce", "ręky"], "answer": "ręce",
+          "explanation_ru": "Исключение из правила множественного числа: ręka → ręce." }
+      ]
+    },
+    {
+      "title": "Zaznacz wszystkie poprawne",
+      "instruction_ru": "Отметь ВСЕ правильные варианты.",
+      "questions": [
+        { "id": "q13", "type": "multi", "prompt": "Które słowa są rodzaju żeńskiego (ta)?",
+          "options": ["noc", "dzień", "wiadomość", "kraj", "podróż"], "answer": ["noc", "wiadomość", "podróż"],
+          "explanation_ru": "Noc, wiadomość, podróż — женский род (на -ość всегда, мягкие согласные нужно запомнить). Dzień и kraj — мужской род." },
+        { "id": "q14", "type": "multi", "prompt": "Które zdania są poprawne?",
+          "options": ["Ten pies jest mały.", "Ta pies jest mały.", "Ta kawa jest zimna.", "Ten kawa jest zimna."], "answer": ["Ten pies jest mały.", "Ta kawa jest zimna."],
+          "explanation_ru": "Pies — мужской род (ten pies), kawa — женский (ta kawa), в отличие от русского «этот кофе»." },
+        { "id": "q15", "type": "multi", "prompt": "Które słowa występują tylko w liczbie mnogiej?",
+          "options": ["drzwi", "okulary", "dziecko", "urodziny", "książka"], "answer": ["drzwi", "okulary", "urodziny"],
+          "explanation_ru": "Drzwi, okulary, urodziny используются только во множественном числе. У dziecko и książka есть форма единственного числа." }
+      ]
+    },
+    {
+      "title": "Ci czy te + przymiotnik",
+      "instruction_ru": "Впиши прилагательное во множественном числе в правильной форме.",
+      "questions": [
+        { "id": "q16", "type": "input", "prompt": "Ci pracownicy są ___. (zajęty)", "answer": ["zajęci"],
+          "explanation_ru": "Мужское лицо (ci pracownicy): zajęty → zajęci." },
+        { "id": "q17", "type": "input", "prompt": "Te psy są ___. (głodny)", "answer": ["głodne"],
+          "explanation_ru": "Psy — niemęskoosobowe (te), прилагательное оканчивается на -e: głodne." },
+        { "id": "q18", "type": "input", "prompt": "Moje koleżanki są ___. (szczęśliwy)", "answer": ["szczęśliwe"],
+          "explanation_ru": "Женщины — niemęskoosobowe: szczęśliwy → szczęśliwe." },
+        { "id": "q19", "type": "input", "prompt": "Ci chłopcy są ___. (mały)", "answer": ["mali"],
+          "explanation_ru": "Мужское лицо: mały → mali (с чередованием)." }
+      ]
+    }
+  ]
+}
