@@ -33,11 +33,20 @@
       <form id="af" class="q">
         ${reg ? `<label class="field">Имя<input type="text" id="nm" required></label>` : ""}
         <label class="field">Email<input type="text" id="em" autocomplete="email" required></label>
-        <label class="field">Пароль (от 6 символов)<input type="password" id="pw" autocomplete="${reg ? "new-password" : "current-password"}" minlength="6" required></label>
+        <label class="field">Пароль (от 6 символов)
+          <span class="pw"><input type="password" id="pw" autocomplete="${reg ? "new-password" : "current-password"}" minlength="6" required>
+          <button type="button" id="eye" class="eye" aria-label="Показать пароль" aria-pressed="false">👁</button></span></label>
         <div class="err" id="er"></div>
         <button class="btn" type="submit" style="width:100%">${reg ? "Создать аккаунт" : "Войти"}</button>
       </form>`;
     on("tl", () => authView("login")); on("tr", () => authView("register"));
+    on("eye", () => {
+      const inp = $("pw"), show = inp.type === "password";
+      inp.type = show ? "text" : "password";
+      $("eye").setAttribute("aria-pressed", String(show));
+      $("eye").setAttribute("aria-label", show ? "Скрыть пароль" : "Показать пароль");
+      $("eye").style.opacity = show ? "1" : ".55";
+    });
     $("af").onsubmit = async (e) => {
       e.preventDefault();
       const email = $("em").value.trim(), password = $("pw").value;
