@@ -55,7 +55,8 @@ export async function handle(req: Req, bearer: string | null, d: Deps): Promise<
     }
 
     if (!req.user_id || !UUID.test(req.user_id)) return err(400, "Не указан ученик");
-    if (await d.isTeacher(req.user_id)) return err(400, "Для учителя это действие недоступно");
+    // новый пароль можно выдать другому учителю (не себе), остальные действия — только для учеников
+    if ((await d.isTeacher(req.user_id)) && !(req.action === "set_password" && req.user_id !== caller)) return err(400, "Для учителя это действие недоступно");
     if (req.action === "delete_student") {
       await d.deleteStudent(req.user_id);
       return { status: 200, body: { ok: true } };

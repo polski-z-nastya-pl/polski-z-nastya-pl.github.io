@@ -2,13 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { handle, type Deps } from "./logic.ts";
 
-const T = "11111111-1111-4111-8111-111111111111", S = "22222222-2222-4222-8222-222222222222";
+const T2 = "66666666-6666-4666-8666-666666666666", T = "11111111-1111-4111-8111-111111111111", S = "22222222-2222-4222-8222-222222222222";
 const mk = (over: Partial<Deps> = {}): Deps & { log: string[] } => {
   const log: string[] = [];
   return {
     log,
     getCaller: async (b) => (b === "teacher-jwt" ? T : b === "student-jwt" ? S : null),
-    isTeacher: async (id) => id === T,
+    isTeacher: async (id) => id === T || id === T2,
     createStudent: async (n) => { log.push("create:" + n); return "33333333-3333-4333-8333-333333333333"; },
     newInvite: async (u) => { log.push("invite:" + u); return "44444444-4444-4444-8444-444444444444"; },
     userByToken: async (t) => (t === "44444444-4444-4444-8444-444444444444" ? S : null),
@@ -86,4 +86,12 @@ test("delete_student: только учитель, не учителя", async (
   assert.deepEqual(d.log, []);
   assert.equal((await handle({ action: "delete_student", user_id: S }, "teacher-jwt", d)).status, 200);
   assert.deepEqual(d.log, ["del:" + S]);
+});
+
+test("set_password: другому учителю можно, себе и удаление учителя нельзя", async () => {
+  const d = mk();
+  assert.equal((await handle({ action: "set_password", user_id: T2 }, "teacher-jwt", d)).status, 200);
+  assert.equal((await handle({ action: "set_password", user_id: T }, "teacher-jwt", d)).status, 400);
+  assert.equal((await handle({ action: "delete_student", user_id: T2 }, "teacher-jwt", d)).status, 400);
+  assert.equal((await handle({ action: "regenerate", user_id: T2 }, "teacher-jwt", d)).status, 400);
 });

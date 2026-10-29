@@ -39,7 +39,9 @@
         ${reg ? `<p class="hint">Регистрация только для учеников, чей email добавила учитель.</p>` : ""}
         <div class="err" id="er"></div>
         <button class="btn" type="submit" style="width:100%">${reg ? "Создать аккаунт" : "Войти"}</button>
+        ${reg ? "" : `<p style="text-align:center;margin:14px 0 0"><button type="button" class="link" id="forgot">Забыли пароль?</button></p>`}
       </form>`;
+    on("forgot", showForgot);
 
     on("eye", () => {
       const inp = $("pw"), show = inp.type === "password";
@@ -64,6 +66,59 @@
     };
   }
 
+  function showForgot() {
+    $app.innerHTML = `<div class="top"><button class="link" id="back">← Назад ко входу</button></div>
+      <h1>Забыли пароль?</h1>
+      <p class="sub">Выберите, как восстановить доступ.</p>
+      <div class="q">
+        <h3>1. Новый пароль от учителя</h3>
+        <p class="hint">Самый надёжный способ. Ученик просит учителя нажать у себя «🔑 Новый пароль» в разделе «Ученики». Учитель просит об этом другого учителя (например, владельца приложения). Новый пароль приходит сообщением, потом его можно сменить на свой в меню «⋯».</p>
+      </div>
+      <div class="q" style="margin-top:12px">
+        <h3>2. Ссылка на почту</h3>
+        <p class="hint">Мы отправим письмо со ссылкой для нового пароля. Письмо может не дойти: отправка почты пока работает не для всех адресов.</p>
+        <label class="field">Ваш email<input type="text" id="fe" autocomplete="email" inputmode="email" autocapitalize="off"></label>
+        <div class="err" id="fer"></div>
+        <button class="btn" id="fs" style="width:100%">Отправить ссылку</button>
+      </div>`;
+    on("back", authView);
+    on("fs", async () => {
+      const email = $("fe").value.trim(), er = $("fer");
+      er.style.color = "var(--bad)";
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { er.textContent = "Проверьте email."; return; }
+      $("fs").disabled = true; er.textContent = "";
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+      $("fs").disabled = false;
+      if (error) { er.textContent = /rate|лимит|limit/i.test(error.message) ? "Письмо сейчас отправить не получается. Используйте способ 1." : error.message; return; }
+      er.style.color = "var(--ok)"; er.textContent = "Если такой email есть в системе, письмо отправлено. Не пришло за несколько минут: используйте способ 1.";
+    });
+  }
+
+  function showChangePassword(opts = {}) {
+    $app.innerHTML = `${opts.recovery ? "" : `<div class="top"><button class="link" id="back">← Назад</button></div>`}
+      <h1>${opts.recovery ? "Новый пароль" : "Сменить пароль"}</h1>
+      <p class="sub">${opts.recovery ? "Придумайте новый пароль для входа." : "Задайте свой пароль вместо временного."}</p>
+      <form id="cf" class="q">
+        <label class="field">Новый пароль (от 6 символов)
+          <span class="pw"><input type="password" id="np" autocomplete="new-password" minlength="6" required>
+          <button type="button" id="eye" class="eye" aria-label="Показать пароль">👁</button></span></label>
+        <label class="field">Повторите пароль<input type="password" id="np2" autocomplete="new-password" minlength="6" required></label>
+        <div class="err" id="cer"></div>
+        <button class="btn" type="submit" style="width:100%">Сохранить пароль</button>
+      </form>`;
+    on("back", home);
+    on("eye", () => { const i = $("np"); i.type = i.type === "password" ? "text" : "password"; });
+    $("cf").onsubmit = async (e) => {
+      e.preventDefault();
+      const er = $("cer"); er.style.color = "var(--bad)";
+      if ($("np").value !== $("np2").value) { er.textContent = "Пароли не совпадают."; return; }
+      const { error } = await sb.auth.updateUser({ password: $("np").value });
+      if (error) { er.textContent = /same|different/i.test(error.message) ? "Новый пароль должен отличаться от старого." : error.message; return; }
+      er.style.color = "var(--ok)"; er.textContent = "Пароль изменён ✓";
+      setTimeout(() => { recovering = false; sb.auth.getSession().then(({ data }) => route(data.session)); }, 900);
+    };
+  }
+
   async function loadProfile() {
     me.profile = await must(sb.from("profiles").select("*").eq("id", me.user.id).single());
   }
@@ -72,8 +127,9 @@
   function header(menu = "") {
     const n = me.profile.display_name;
     return `<div class="appbar"><div class="who"><span class="avatar">${esc(initials(n))}</span><span><b>${esc(n)}</b><small>${isTeacher() ? "учитель" : "ученик"}</small></span></div>
-      <details class="menu"><summary aria-label="Меню">⋯</summary><div class="menu-pop">${menu}<button id="out">Выйти</button></div></details></div>`;
+      <details class="menu"><summary aria-label="Меню">⋯</summary><div class="menu-pop">${menu}<button id="chpw">🔑 Сменить пароль</button><button id="out">Выйти</button></div></details></div>`;
   }
+  const bindHeader = () => { on("out", () => sb.auth.signOut()); on("chpw", () => showChangePassword()); };
   // меню закрывается по клику вне него
   document.addEventListener("click", (e) => document.querySelectorAll("details.menu[open]").forEach((d) => { if (!d.contains(e.target)) d.open = false; }));
 
@@ -120,7 +176,7 @@
         <button class="task words" id="gf"><span class="task-main"><b>🃏 Повторить слова</b><small>${due ? `На сегодня: ${due} ${plural(due, "слово", "слова", "слов")}` : "На сегодня всё повторено 🎉"}</small></span><span class="task-side"><small>${due ? "Начать" : ""}</small></span></button>
         ${done.length ? `<h3 class="sec">Пройденные</h3>${done.map(card).join("")}` : ""}
         ${navBar("home")}`;
-      on("out", () => sb.auth.signOut()); on("gf", flashcards); on("exitprev", () => { me.preview = false; teacher("tests"); }); bindNav();
+      bindHeader(); on("gf", flashcards); on("exitprev", () => { me.preview = false; teacher("tests"); }); bindNav();
       $app.querySelectorAll("[data-t]").forEach((b) => b.onclick = () => startTest(tests.find((t) => t.id === b.dataset.t)));
     } catch (e) { fail(e); }
   }
@@ -263,7 +319,7 @@
           <span class="task-side"><span class="chip ${pctOf(a) >= 70 ? "ok" : "mid"}">${a.score}/${a.total}</span></span></div>`).join("")}`
           : `<p class="sub">Вы ещё не проходили тесты. Начните с вкладки «Задания».</p>`}
         ${navBar("hist")}`;
-      on("out", () => sb.auth.signOut()); bindNav();
+      bindHeader(); bindNav();
     } catch (e) { fail(e); }
   }
 
@@ -321,7 +377,7 @@
         `<button data-tab="${k}" class="${k === cur ? "on" : ""}" ${k === cur ? 'aria-current="page"' : ""}><span class="ni">${i}</span>${t}</button>`).join("")}</nav>`;
   }
   function bindTabs() {
-    on("out", () => sb.auth.signOut());
+    bindHeader();
     on("prev", () => { me.preview = true; home(); });
     $app.querySelectorAll("[data-tab]").forEach((b) => b.onclick = () => teacher(b.dataset.tab));
   }
@@ -586,8 +642,8 @@
           </div></div></details>`).join("")}</div>` : `<div class="list"><div class="empty">Учеников пока нет. Добавьте первого выше.</div></div>`}
 
       <h3 class="sec">Учителя (${teachers.length})</h3>
-      <div class="list">${teachers.map((p) => `<div class="li" style="cursor:default"><span class="who"><span class="avatar">${esc(initials(p.display_name))}</span><span class="li-main"><b>${esc(p.display_name)}</b><small>${sub(p)}</small></span></span>
-        <span class="li-side">${p.id === me.user.id ? `<span class="chip off">это вы</span>` : `<button class="btn sm alt" data-role="${p.id}" data-to="student">Сделать учеником</button>`}</span></div>`).join("")}</div>
+      <div class="list">${teachers.map((p) => `<div class="li" style="cursor:default;flex-wrap:wrap"><span class="who"><span class="avatar">${esc(initials(p.display_name))}</span><span class="li-main"><b>${esc(p.display_name)}</b><small>${sub(p)}</small></span></span>
+        <span class="li-side" style="flex-wrap:wrap;justify-content:flex-end">${p.id === me.user.id ? `<span class="chip off">это вы</span>` : `<button class="btn sm alt" data-pw="${p.id}">🔑 Новый пароль</button><button class="btn sm alt" data-role="${p.id}" data-to="student">Сделать учеником</button>`}</span></div>`).join("")}</div>
       ${pending.length ? `<h3 class="sec">Добавлены, но ещё не вошли</h3><div class="list">${pending.map((a) => `<div class="li" style="cursor:default"><span class="li-main"><b>${esc(a.email)}</b></span><span class="li-side"><button class="link" data-del="${esc(a.email)}">убрать</button></span></div>`).join("")}</div>` : ""}`;
     bindTabs();
     $app.querySelectorAll("[data-t]").forEach((c) => c.onchange = () => setAssign(c.dataset.t, c.dataset.u, c.checked, c));
@@ -763,8 +819,11 @@
     me.user = session.user;
     try { await loadProfile(); home(); } catch (e) { fail(e); }
   }
+  let recovering = false;
   sb.auth.onAuthStateChange((event, session) => {
     if (claiming) return;
+    if (event === "PASSWORD_RECOVERY") { recovering = true; setTimeout(() => showChangePassword({ recovery: true }), 0); return; }
+    if (recovering) return;
     if (event === "SIGNED_IN" && session && me.user?.id === session.user.id) return; // обновление токена/возврат на вкладку
     if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "SIGNED_OUT") setTimeout(() => route(session), 0);
   });
