@@ -215,7 +215,7 @@
   // ---------- панель учителя ----------
   function tabs(cur) {
     return `<div class="top"><button class="link" id="back">← На главную</button><span>Панель учителя</span></div>
-      <div class="tabs">${[["tests", "Тесты"], ["words", "Слова"], ["results", "Результаты"]].map(([k, t]) =>
+      <div class="tabs">${[["tests", "Тесты"], ["students", "Ученики"], ["words", "Слова"], ["results", "Результаты"]].map(([k, t]) =>
         `<button class="tab ${cur === k ? "on" : ""}" data-tab="${k}">${t}</button>`).join("")}</div>`;
   }
   function bindTabs() {
@@ -226,6 +226,7 @@
   async function teacher(tab) {
     try {
       if (tab === "tests") return teacherTests();
+      if (tab === "students") return teacherStudents();
       if (tab === "words") return teacherWords();
       return teacherResults();
     } catch (e) { fail(e); }
@@ -250,15 +251,21 @@
 
   async function editTest(id) {
     try {
-      const [t, qs] = await Promise.all([
+      const [t, qs, students, asg] = await Promise.all([
         must(sb.from("tests").select("*").eq("id", id).single()),
-        must(sb.from("questions").select("*").eq("test_id", id).order("position"))]);
+        must(sb.from("questions").select("*").eq("test_id", id).order("position")),
+        must(sb.from("profiles").select("id,display_name").eq("role", "student").order("display_name")),
+        must(sb.from("test_assignments").select("user_id").eq("test_id", id))]);
+      const assigned = new Set(asg.map((a) => a.user_id));
       $app.innerHTML = `<div class="top"><button class="link" id="back">← К тестам</button><span>Редактирование</span></div>
         <div class="q">
           <label class="field">Название<input type="text" id="tt" value="${esc(t.title)}"></label>
           <label class="field">Описание<input type="text" id="td" value="${esc(t.description)}"></label>
           <label class="field">Уровень<select id="tv"><option ${t.level === "A2" ? "selected" : ""}>A2</option><option ${t.level === "B1" ? "selected" : ""}>B1</option></select></label>
-          <label class="field" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="tp" ${t.published ? "checked" : ""}> Опубликован (виден ученикам)</label>
+          <label class="field" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="tp" ${t.published ? "checked" : ""}> Опубликован</label>
+          <label class="field" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="tfa" ${t.for_all ? "checked" : ""}> Доступен всем ученикам</label>
+          <div class="field">Или только выбранным ученикам:
+            ${students.length ? students.map((p) => `<label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" data-as="${p.id}" ${assigned.has(p.id) ? "checked" : ""}> ${esc(p.display_name)}</label>`).join("") : "<i>Учеников пока нет</i>"}</div>
           <div class="row"><button class="btn sm" id="ts">Сохранить тест</button><button class="btn sm danger" id="tdel">Удалить тест</button></div>
           <div class="err" id="er"></div>
         </div>
@@ -267,9 +274,10 @@
         <div class="row"><button class="btn sm" id="nq">+ Добавить вопрос</button></div>`;
       on("back", teacherTests);
       on("ts", async () => {
-        const { error } = await sb.from("tests").update({ title: $("tt").value, description: $("td").value, level: $("tv").value, published: $("tp").checked }).eq("id", id);
+        const { error } = await sb.from("tests").update({ title: $("tt").value, description: $("td").value, level: $("tv").value, published: $("tp").checked, for_all: $("tfa").checked }).eq("id", id);
         $("er").style.color = error ? "var(--bad)" : "var(--ok)"; $("er").textContent = error ? error.message : "Сохранено";
       });
+      $app.querySelectorAll("[data-as]").forEach((c) => c.onchange = () => setAssign(id, c.dataset.as, c.checked, c));
       on("tdel", async () => { if (confirm("Удалить тест вместе с вопросами и результатами?")) { await must(sb.from("tests").delete().eq("id", id)); teacherTests(); } });
       on("nq", async () => {
         await must(sb.from("questions").insert({ test_id: id, position: qs.length + 1, type: "choice", prompt: "Новый вопрос", options: ["вариант 1", "вариант 2"], answer: "вариант 1" }));
@@ -299,6 +307,38 @@
       <label class="field">Пояснение (необязательно)<input type="text" class="qx" value="${esc(q.explain)}"></label>
       <div class="err"></div>
       <div class="row"><button class="btn sm" data-qs="${q.id}">Сохранить</button><button class="btn sm danger" data-qd="${q.id}">Удалить</button></div></div>`;
+  }
+
+  async function setAssign(testId, userId, on, box) {
+    const q = on ? sb.from("test_assignments").upsert({ test_id: testId, user_id: userId })
+                 : sb.from("test_assignments").delete().eq("test_id", testId).eq("user_id", userId);
+    const { error } = await q;
+    if (error) { box.checked = !on; alert("Не удалось сохранить: " + error.message); }
+  }
+
+  async function teacherStudents() {
+    const [profs, tests, asg] = await Promise.all([
+      must(sb.from("profiles").select("*").order("display_name")),
+      must(sb.from("tests").select("id,title,level,published,for_all").order("level").order("title")),
+      must(sb.from("test_assignments").select("*"))]);
+    const has = new Set(asg.map((a) => a.test_id + ":" + a.user_id));
+    $app.innerHTML = `${tabs("students")}
+      <p class="hint">Здесь Настя назначает роль и выбирает, какие тесты видит каждый ученик. Новые пользователи регистрируются сами и по умолчанию — ученики.</p>
+      ${profs.map((p) => `<div class="item"><b>${esc(p.display_name)}</b>
+        <select data-role="${p.id}" style="width:auto;margin-left:8px" ${p.id === me.user.id ? "disabled" : ""}>
+          <option value="student" ${p.role === "student" ? "selected" : ""}>ученик</option>
+          <option value="teacher" ${p.role === "teacher" ? "selected" : ""}>учитель</option></select>
+        ${p.role === "student" ? `<div style="margin-top:8px">${tests.map((t) => `<label style="display:flex;gap:8px;align-items:center;font-size:14px">
+          <input type="checkbox" data-t="${t.id}" data-u="${p.id}" ${has.has(t.id + ":" + p.id) ? "checked" : ""}>
+          <span class="badge">${t.level}</span>${esc(t.title)}${t.for_all ? " <small>(доступен всем)</small>" : ""}${t.published ? "" : " <small>(черновик)</small>"}</label>`).join("") || "<small>Тестов нет</small>"}</div>` : ""}
+      </div>`).join("")}`;
+    bindTabs();
+    $app.querySelectorAll("[data-t]").forEach((c) => c.onchange = () => setAssign(c.dataset.t, c.dataset.u, c.checked, c));
+    $app.querySelectorAll("[data-role]").forEach((sel) => sel.onchange = async () => {
+      const { error } = await sb.from("profiles").update({ role: sel.value }).eq("id", sel.dataset.role);
+      if (error) alert("Не удалось сохранить: " + error.message);
+      teacherStudents();
+    });
   }
 
   async function teacherWords() {
