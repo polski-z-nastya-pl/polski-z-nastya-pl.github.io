@@ -1,7 +1,7 @@
 (() => {
   const sb = supabase.createClient(CFG.url, CFG.key);
   const $app = document.getElementById("app");
-  const me = { user: null, profile: null };
+  const me = { user: null, profile: null, preview: false };
   const INTERVALS = [0, 1, 3, 7, 14]; // дни до повтора для коробок 1..5
 
   // ---------- утилиты ----------
@@ -73,42 +73,55 @@
       <span>${extra}<button class="link" id="out">Выйти</button></span></div>`;
   }
 
-  // ---------- главная ученика ----------
+  // ---------- навигация и состояния ----------
+  const spacer = `<div style="height:84px"></div>`;
+  function navBar(active) {
+    const items = [["home", "📝", "Задания"], ["cards", "🃏", "Слова"], ["hist", "📈", "Результаты"]];
+    if (isTeacher()) items.push(["panel", "⚙️", "Панель"]);
+    return `<nav class="nav" aria-label="Разделы">${items.map(([k, i, t]) =>
+      `<button data-nav="${k}" class="${k === active ? "on" : ""}" ${k === active ? 'aria-current="page"' : ""}><span class="ni">${i}</span>${t}</button>`).join("")}</nav>`;
+  }
+  function bindNav() {
+    const go = { home: () => home(), cards: () => flashcards(), hist: () => history(), panel: () => { me.preview = false; teacher("tests"); } };
+    $app.querySelectorAll("[data-nav]").forEach((b) => b.onclick = go[b.dataset.nav]);
+  }
+  const loading = () => { $app.innerHTML = `<p class="sub" style="text-align:center;margin-top:40px">Загрузка…</p>`; };
+  const plural = (n, one, few, many) => { const m = n % 100, d = n % 10; return m > 10 && m < 15 ? many : d === 1 ? one : d >= 2 && d <= 4 ? few : many; };
+  const pctOf = (a) => Math.round(a.score / a.total * 100);
+
+  // ---------- главная ученика: сразу задания ----------
   async function home() {
+    if (isTeacher() && !me.preview) return teacher("tests");
+    loading();
     try {
-      const [words, prog] = await Promise.all([
+      const [tests, att, words, prog] = await Promise.all([
+        must(sb.from("tests").select("*").eq("published", true).order("level").order("title")),
+        must(sb.from("attempts").select("test_id,score,total,created_at").eq("user_id", me.user.id)),
         must(sb.from("words").select("id")), must(sb.from("card_progress").select("word_id,due"))]);
+      const best = {};
+      att.forEach((a) => { if (!best[a.test_id] || pctOf(a) > pctOf(best[a.test_id])) best[a.test_id] = a; });
       const seen = new Map(prog.map((p) => [p.word_id, p.due]));
       const due = words.filter((w) => !seen.has(w.id) || seen.get(w.id) <= today()).length;
+      const todo = tests.filter((t) => !best[t.id]), done = tests.filter((t) => best[t.id]);
+      const card = (t) => {
+        const b = best[t.id];
+        return `<button class="task" data-t="${t.id}">
+          <span class="task-main"><b>${esc(t.title)}</b>${t.description ? `<small>${esc(t.description)}</small>` : ""}</span>
+          <span class="task-side">${b ? `<span class="chip ok">✓ ${b.score}/${b.total}</span><small>Пройти ещё раз</small>` : `<span class="chip new">Новое</span><small>Начать</small>`}</span></button>`;
+      };
       $app.innerHTML = `${header()}
-        <h1><span class="flag"></span>Polski Quiz</h1>
-        <p class="sub">Выберите, чем заняться.</p>
-        <div class="grid">
-          <button class="card" id="gt"><span class="ico">📝</span><b>Тесты</b><small>Тесты уровней A2–B1</small></button>
-          <button class="card" id="gf"><span class="ico">🃏</span><b>Карточки</b><small>К повторению: ${due}</small></button>
-          <button class="card" id="gh"><span class="ico">📈</span><b>Мои результаты</b><small>История прохождений</small></button>
-          ${isTeacher() ? `<button class="card" id="gp"><span class="ico">🧑‍🏫</span><b>Панель учителя</b><small>Тесты, слова, результаты</small></button>` : ""}
-        </div>`;
-      on("out", () => sb.auth.signOut());
-      on("gt", testsList); on("gf", flashcards); on("gh", history); on("gp", () => teacher("tests"));
-    } catch (e) { fail(e); }
-  }
-
-  // ---------- список тестов и прохождение ----------
-  async function testsList() {
-    try {
-      const [tests, att] = await Promise.all([
-        must(sb.from("tests").select("*").eq("published", true).order("level").order("title")),
-        must(sb.from("attempts").select("test_id,score,total").eq("user_id", me.user.id))]);
-      const best = {};
-      att.forEach((a) => { if (!best[a.test_id] || a.score / a.total > best[a.test_id].score / best[a.test_id].total) best[a.test_id] = a; });
-      $app.innerHTML = `<div class="top"><button class="link" id="back">← Назад</button><span>Тесты</span></div>
-        ${tests.length ? `<div class="grid">${tests.map((t) => `<button class="card" data-t="${t.id}"><span class="badge">${t.level}</span><b>${esc(t.title)}</b><small>${esc(t.description)}</small>
-          ${best[t.id] ? `<span class="best">Лучший: ${best[t.id].score}/${best[t.id].total}</span>` : ""}</button>`).join("")}</div>` : `<p class="sub">Пока нет опубликованных тестов.</p>`}`;
-      on("back", home);
+        ${me.preview ? `<div class="fb almost" style="margin:0 0 12px">👁 Режим просмотра: так приложение видит ученик (показаны все опубликованные тесты). <button class="link" id="exitprev">← Вернуться в панель</button></div>` : ""}
+        <h1>Привет, ${esc(me.profile.display_name.split(" ")[0])}! 👋</h1>
+        <p class="sub">${todo.length ? `Новых заданий: ${todo.length}. Нажмите на задание, чтобы начать.` : tests.length ? "Все задания пройдены. Можно повторить или потренировать слова." : "Когда учитель назначит тест, он появится здесь."}</p>
+        ${todo.length ? `<h3 class="sec">Новые задания</h3>${todo.map(card).join("")}` : ""}
+        <button class="task words" id="gf"><span class="task-main"><b>🃏 Повторить слова</b><small>${due ? `На сегодня: ${due} ${plural(due, "слово", "слова", "слов")}` : "На сегодня всё повторено 🎉"}</small></span><span class="task-side"><small>${due ? "Начать" : ""}</small></span></button>
+        ${done.length ? `<h3 class="sec">Пройденные</h3>${done.map(card).join("")}` : ""}
+        ${navBar("home")}`;
+      on("out", () => sb.auth.signOut()); on("gf", flashcards); on("exitprev", () => { me.preview = false; teacher("tests"); }); bindNav();
       $app.querySelectorAll("[data-t]").forEach((b) => b.onclick = () => startTest(tests.find((t) => t.id === b.dataset.t)));
     } catch (e) { fail(e); }
   }
+  const testsList = home;
 
   // ---------- прохождение теста: одно задание на экране ----------
   const LETTERS = ["ą", "ć", "ę", "ł", "ń", "ó", "ś", "ź", "ż"];
@@ -238,12 +251,16 @@
   }
 
   async function history() {
+    loading();
     try {
       const att = await must(sb.from("attempts").select("*, tests(title,level)").eq("user_id", me.user.id).order("created_at", { ascending: false }).limit(50));
-      $app.innerHTML = `<div class="top"><button class="link" id="back">← Назад</button><span>Мои результаты</span></div>
-        ${att.length ? `<ul class="review">${att.map((a) => `<li><span class="badge">${esc(a.tests?.level)}</span>${esc(a.tests?.title)} — <b>${a.score}/${a.total}</b>
-          <br><small>${new Date(a.created_at).toLocaleString("ru-RU")}</small></li>`).join("")}</ul>` : `<p class="sub">Вы ещё не проходили тесты.</p>`}`;
-      on("back", home);
+      $app.innerHTML = `${header()}<h1>Мои результаты</h1>
+        ${att.length ? `<p class="sub">Последние прохождения.</p>${att.map((a) => `<div class="task static"><span class="task-main"><b>${esc(a.tests?.title)}</b>
+          <small>${new Date(a.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}</small></span>
+          <span class="task-side"><span class="chip ${pctOf(a) >= 70 ? "ok" : "mid"}">${a.score}/${a.total}</span></span></div>`).join("")}`
+          : `<p class="sub">Вы ещё не проходили тесты. Начните с вкладки «Задания».</p>`}
+        ${navBar("hist")}`;
+      on("out", () => sb.auth.signOut()); bindNav();
     } catch (e) { fail(e); }
   }
 
@@ -254,8 +271,8 @@
       const pm = new Map(prog.map((p) => [p.word_id, p]));
       const queue = shuffle(words.filter((w) => !pm.has(w.id) || pm.get(w.id).due <= today())).slice(0, 20);
       if (!queue.length) {
-        $app.innerHTML = `<div class="top"><button class="link" id="back">← Назад</button><span>Карточки</span></div><p class="sub">На сегодня всё повторено. 🎉 Возвращайтесь завтра!</p>`;
-        return on("back", home);
+        $app.innerHTML = `<h1>Слова</h1><p class="sub">На сегодня всё повторено. 🎉 Возвращайтесь завтра!</p>${navBar("cards")}`;
+        return bindNav();
       }
       let i = 0, known = 0;
       const show = (flipped) => {
@@ -282,7 +299,7 @@
         if (++i < queue.length) show(false);
         else {
           $app.innerHTML = `<h1>Готово!</h1><div class="score">${known}/${queue.length}</div><p class="sub" style="text-align:center">слов вы знали</p>
-            <div class="row"><button class="btn" id="home">На главную</button></div>`;
+            <div class="row"><button class="btn" id="home">К заданиям</button></div>`;
           on("home", home);
         }
       };
@@ -292,12 +309,14 @@
 
   // ---------- панель учителя ----------
   function tabs(cur) {
-    return `<div class="top"><button class="link" id="back">← На главную</button><span>Панель учителя</span></div>
-      <div class="tabs">${[["tests", "Тесты"], ["students", "Ученики"], ["words", "Слова"], ["results", "Результаты"]].map(([k, t]) =>
-        `<button class="tab ${cur === k ? "on" : ""}" data-tab="${k}">${t}</button>`).join("")}</div>`;
+    const items = [["tests", "📝", "Тесты"], ["students", "👥", "Ученики"], ["words", "🃏", "Слова"], ["results", "📈", "Результаты"]];
+    return `${header('<button class="link" id="prev">👁 Как видит ученик</button> ')}
+      <nav class="nav" aria-label="Панель учителя">${items.map(([k, i, t]) =>
+        `<button data-tab="${k}" class="${k === cur ? "on" : ""}" ${k === cur ? 'aria-current="page"' : ""}><span class="ni">${i}</span>${t}</button>`).join("")}</nav>`;
   }
   function bindTabs() {
-    on("back", home);
+    on("out", () => sb.auth.signOut());
+    on("prev", () => { me.preview = true; home(); });
     $app.querySelectorAll("[data-tab]").forEach((b) => b.onclick = () => teacher(b.dataset.tab));
   }
 
@@ -311,14 +330,22 @@
   }
 
   async function teacherTests() {
-    const tests = await must(sb.from("tests").select("*, questions(count)").order("created_at", { ascending: false }));
+    const [tests, logs] = await Promise.all([
+      must(sb.from("tests").select("*, questions(count)").order("created_at", { ascending: false })),
+      must(sb.from("agent_log").select("*").eq("seen", false).order("created_at", { ascending: false }).limit(8))]);
+    const icon = { draft: "📝", question: "❓", error: "⚠️", info: "ℹ️" };
     $app.innerHTML = `${tabs("tests")}
+      ${logs.length ? `<div class="q" style="margin-bottom:14px"><b>🤖 Помощник сообщает</b>
+        ${logs.map((l) => `<p style="margin:8px 0 0;font-size:15px">${icon[l.kind] || ""} ${esc(l.message)}${l.test_id ? ` <button class="link" data-e="${l.test_id}">Открыть</button>` : ""}</p>`).join("")}
+        <div class="row"><button class="btn sm alt" id="seen">Понятно, скрыть</button></div></div>` : ""}
+      <p class="hint">Новые тесты сначала черновики: их видите только вы. Чтобы ученик увидел тест, откройте его, поставьте «Опубликован» и отметьте ученика (здесь или во вкладке «Ученики»).</p>
       <div class="row" style="margin:0 0 12px"><button class="btn sm" id="new">+ Новый тест</button><button class="btn sm alt" id="imp">⬆ Загрузить тест (JSON)</button></div>
       ${tests.map((t) => `<div class="item"><span class="badge">${t.level}</span><span class="badge ${t.published ? "" : "off"}">${t.published ? "опубликован" : "черновик"}</span>
         <b>${esc(t.title)}</b><br><small>${esc(t.description)} · вопросов: ${t.questions[0].count}</small>
         <div class="row"><button class="btn sm alt" data-e="${t.id}">Редактировать</button></div></div>`).join("") || `<p class="sub">Тестов пока нет.</p>`}`;
     bindTabs();
     on("imp", importView);
+    on("seen", async () => { await sb.from("agent_log").update({ seen: true }).in("id", logs.map((l) => l.id)); teacherTests(); });
     on("new", async () => {
       try {
         const t = await must(sb.from("tests").insert({ title: "Новый тест", level: "A2" }).select().single());
@@ -550,30 +577,82 @@
   }
 
   async function teacherWords() {
-    const words = await must(sb.from("words").select("*").order("level").order("topic").order("pl"));
+    const [words, profs, prog] = await Promise.all([
+      must(sb.from("words").select("*").order("level").order("topic").order("pl")),
+      must(sb.from("profiles").select("id,display_name").eq("role", "student").order("display_name")),
+      must(sb.from("card_progress").select("*"))]);
+    const byId = new Map(words.map((w) => [w.id, w])), t0 = today();
+    const stats = profs.map((p) => {
+      const mine = prog.filter((c) => c.user_id === p.id && byId.has(c.word_id));
+      const learned = mine.filter((c) => c.box >= 4).length;
+      return { p, started: mine.length, learned, learning: mine.length - learned,
+        fresh: words.length - mine.length, due: words.length - mine.length + mine.filter((c) => c.due <= t0).length,
+        hard: mine.filter((c) => c.box === 1).map((c) => byId.get(c.word_id).pl) };
+    });
     $app.innerHTML = `${tabs("words")}
-      <div class="q"><b>Добавить слова списком</b>
-        <p class="hint">Одно слово в строке: <code>слово ; перевод ; пример (необязательно)</code></p>
-        <textarea id="bulk" placeholder="zamierzać ; намереваться ; Zamierzam zmienić pracę."></textarea>
-        <div class="row" style="align-items:center">
-          <select id="bl" style="width:auto"><option>A2</option><option>B1</option></select>
-          <input type="text" id="bt" placeholder="Тема" style="width:auto;flex:1">
-          <button class="btn sm" id="bs">Добавить</button></div>
-        <div class="err" id="er"></div></div>
-      <h3>Слова (${words.length})</h3>
-      <table><tr><th>PL</th><th>RU</th><th>Ур.</th><th></th></tr>
-      ${words.map((w) => `<tr><td>${esc(w.pl)}</td><td>${esc(w.ru)}</td><td>${w.level}</td><td><button class="link" data-wd="${w.id}">удалить</button></td></tr>`).join("")}</table>`;
+      <h1>Слова</h1>
+      <h3 class="sec">Как ученики учат слова</h3>
+      ${stats.length ? stats.map((x) => `<div class="item"><b>${esc(x.p.display_name)}</b>
+        <div class="bar" style="margin:8px 0"><i style="width:${words.length ? Math.round(x.learned / words.length * 100) : 0}%"></i></div>
+        <small>Выучено: <b>${x.learned}</b> из ${words.length} · в процессе: ${x.learning} · ещё не начато: ${x.fresh} · к повторению сегодня: ${x.due}</small>
+        ${x.hard.length ? `<br><small>Сейчас не даются: ${esc(x.hard.slice(0, 8).join(", "))}${x.hard.length > 8 ? " …" : ""}</small>` : ""}</div>`).join("")
+        : `<p class="hint">Учеников пока нет. Когда они начнут проходить карточки, здесь появится прогресс.</p>`}
+      <p class="hint">«Выучено» — слово, которое ученик уже несколько раз подряд назвал правильно. «Не даются» — слова, на которые он ответил «не знал» в последний раз.</p>
+
+      <h3 class="sec">Добавить слово</h3>
+      <div class="q">
+        <label class="field">Слово по-польски<input type="text" id="nw" autocapitalize="off"></label>
+        <label class="field">Перевод<input type="text" id="nr"></label>
+        <label class="field">Пример (необязательно)<input type="text" id="ne"></label>
+        <div class="row" style="align-items:center;margin-top:0">
+          <select id="nl" style="width:auto"><option>A2</option><option>B1</option></select>
+          <input type="text" id="nt" placeholder="Тема (необязательно)" style="flex:1">
+          <button class="btn sm" id="na">Добавить</button></div>
+        <div class="err" id="aer"></div>
+        <details style="margin-top:12px"><summary>Добавить много слов списком</summary>
+          <p class="hint">Одно слово в строке: <code>слово ; перевод ; пример</code></p>
+          <textarea id="bulk" placeholder="zamierzać ; намереваться ; Zamierzam zmienić pracę."></textarea>
+          <div class="row"><button class="btn sm alt" id="bs">Добавить списком</button></div><div class="err" id="er"></div></details>
+      </div>
+
+      <h3 class="sec">Все слова (${words.length})</h3>
+      <div id="wl">${words.map((w) => `<div class="item" data-w="${w.id}"><span class="badge">${w.level}</span><b>${esc(w.pl)}</b> — ${esc(w.ru)}
+        ${w.example ? `<br><small>${esc(w.example)}</small>` : ""}
+        <div class="row"><button class="btn sm alt" data-we="${w.id}">Изменить</button><button class="btn sm danger" data-wd="${w.id}">Удалить</button></div></div>`).join("")}</div>`;
     bindTabs();
+    on("na", async () => {
+      const pl = $("nw").value.trim(), ru = $("nr").value.trim();
+      if (!pl || !ru) { $("aer").style.color = "var(--bad)"; $("aer").textContent = "Заполните слово и перевод."; return; }
+      const { error } = await sb.from("words").insert({ pl, ru, example: $("ne").value.trim(), level: $("nl").value, topic: $("nt").value.trim() });
+      if (error) { $("aer").style.color = "var(--bad)"; $("aer").textContent = error.message; return; }
+      teacherWords();
+    });
     on("bs", async () => {
-      const rows = $("bulk").value.split("\n").map((l) => l.split(";").map((s) => s.trim())).filter((p) => p[0] && p[1])
-        .map((p) => ({ pl: p[0], ru: p[1], example: p[2] || "", level: $("bl").value, topic: $("bt").value.trim() }));
-      if (!rows.length) { $("er").textContent = "Нет строк в формате «слово ; перевод»."; return; }
+      const rows = $("bulk").value.split("\n").map((l) => l.split(";").map((x) => x.trim())).filter((q) => q[0] && q[1])
+        .map((q) => ({ pl: q[0], ru: q[1], example: q[2] || "", level: $("nl").value, topic: $("nt").value.trim() }));
+      if (!rows.length) { $("er").style.color = "var(--bad)"; $("er").textContent = "Нет строк в формате «слово ; перевод»."; return; }
       const { error } = await sb.from("words").insert(rows);
-      if (error) { $("er").textContent = error.message; return; }
+      if (error) { $("er").style.color = "var(--bad)"; $("er").textContent = error.message; return; }
       teacherWords();
     });
     $app.querySelectorAll("[data-wd]").forEach((b) => b.onclick = async () => {
-      if (confirm("Удалить слово?")) { await must(sb.from("words").delete().eq("id", b.dataset.wd)); teacherWords(); }
+      if (confirm("Удалить слово? У учеников пропадёт и его прогресс.")) { await must(sb.from("words").delete().eq("id", b.dataset.wd)); teacherWords(); }
+    });
+    $app.querySelectorAll("[data-we]").forEach((b) => b.onclick = () => {
+      const w = byId.get(b.dataset.we), box = b.closest(".item");
+      box.innerHTML = `<label class="field">Слово<input type="text" class="ew" value="${esc(w.pl)}"></label>
+        <label class="field">Перевод<input type="text" class="er2" value="${esc(w.ru)}"></label>
+        <label class="field">Пример<input type="text" class="ee" value="${esc(w.example)}"></label>
+        <label class="field">Уровень<select class="el"><option ${w.level === "A2" ? "selected" : ""}>A2</option><option ${w.level === "B1" ? "selected" : ""}>B1</option></select></label>
+        <div class="err"></div><div class="row"><button class="btn sm sv">Сохранить</button><button class="btn sm alt cn">Отмена</button></div>`;
+      box.querySelector(".cn").onclick = teacherWords;
+      box.querySelector(".sv").onclick = async () => {
+        const pl = box.querySelector(".ew").value.trim(), ru = box.querySelector(".er2").value.trim();
+        if (!pl || !ru) { box.querySelector(".err").textContent = "Заполните слово и перевод."; return; }
+        const { error } = await sb.from("words").update({ pl, ru, example: box.querySelector(".ee").value.trim(), level: box.querySelector(".el").value }).eq("id", w.id);
+        if (error) { box.querySelector(".err").textContent = error.message; return; }
+        teacherWords();
+      };
     });
   }
 

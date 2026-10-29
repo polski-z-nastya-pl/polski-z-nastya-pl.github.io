@@ -1,0 +1,53 @@
+{
+  "topic": "Демо-тест: как это выглядит",
+  "student": "",
+  "created": "2026-10-29",
+  "tasks": [
+    {
+      "title": "Wybierz poprawną formę",
+      "instruction_ru": "Выбери один правильный вариант.",
+      "questions": [
+        { "id": "q1", "type": "choice", "prompt": "Dzień ___!", "options": ["dobry", "dobra", "dobre"], "answer": "dobry",
+          "explanation_ru": "Dzień — мужской род, поэтому «dzień dobry»." },
+        { "id": "q2", "type": "choice", "prompt": "To jest ___ książka. (моя)", "options": ["mój", "moja", "moje"], "answer": "moja",
+          "explanation_ru": "Książka — женский род, значит moja." },
+        { "id": "q3", "type": "choice", "prompt": "Mam ___. (сестра)", "options": ["siostra", "siostrę", "siostry"], "answer": "siostrę",
+          "explanation_ru": "Прямое дополнение стоит в винительном падеже: -a → -ę." },
+        { "id": "q4", "type": "choice", "prompt": "Ona ___ studentką.", "options": ["jest", "jestem", "są"], "answer": "jest",
+          "explanation_ru": "Быть, 3 л. ед. ч.: ona jest." }
+      ]
+    },
+    {
+      "title": "Wpisz słowo",
+      "instruction_ru": "Впиши слово в пропуск. Для польских букв есть кнопки над полем.",
+      "questions": [
+        { "id": "q5", "type": "input", "prompt": "Jeden kot, dwa ___.", "answer": ["koty"],
+          "explanation_ru": "После твёрдого согласного во множественном числе ставится -y: kot → koty." },
+        { "id": "q6", "type": "input", "prompt": "Jedna kobieta, dwie ___.", "answer": ["kobiety"],
+          "explanation_ru": "Kobieta → kobiety (-a → -y)." },
+        { "id": "q7", "type": "input", "prompt": "Jedno okno, dwa ___.", "answer": ["okna"],
+          "explanation_ru": "Средний род на -o получает -a: okno → okna." },
+        { "id": "q8", "type": "input", "prompt": "Ja ___ po polsku. (mówić)", "answer": ["mówię"],
+          "explanation_ru": "Mówić: ja mówię. Обрати внимание на буквы ó и ę." }
+      ]
+    },
+    {
+      "title": "Zaznacz wszystkie poprawne",
+      "instruction_ru": "Отметь все правильные варианты (их может быть несколько).",
+      "questions": [
+        { "id": "q9", "type": "multi", "prompt": "Które słowa to dni tygodnia?",
+          "options": ["poniedziałek", "środa", "styczeń", "piątek"], "answer": ["poniedziałek", "środa", "piątek"],
+          "explanation_ru": "Styczeń — это январь, месяц, а не день недели." },
+        { "id": "q10", "type": "multi", "prompt": "Które słowa są rodzaju żeńskiego (ta)?",
+          "options": ["kawa", "dom", "książka", "okno"], "answer": ["kawa", "książka"],
+          "explanation_ru": "Kawa и książka оканчиваются на -a и женского рода. Dom — мужской, okno — средний." },
+        { "id": "q11", "type": "multi", "prompt": "Które zdania są poprawne?",
+          "options": ["Ja jestem w domu.", "Ty jest w domu.", "On jest w domu.", "My jesteśmy w domu."], "answer": ["Ja jestem w domu.", "On jest w domu.", "My jesteśmy w domu."],
+          "explanation_ru": "Ty jesteś, а не «ty jest»." },
+        { "id": "q12", "type": "multi", "prompt": "Które wyrażenia to formuły grzecznościowe?",
+          "options": ["Dzień dobry", "Dziękuję", "Pies", "Do widzenia"], "answer": ["Dzień dobry", "Dziękuję", "Do widzenia"],
+          "explanation_ru": "Pies — это «собака», не вежливая фраза." }
+      ]
+    }
+  ]
+}

@@ -59,3 +59,19 @@ input[type=text].ok{border-color:var(--ok)}input[type=text].bad{border-color:var
 .fb.almost{background:color-mix(in srgb,#d49a00 18%,transparent)}.fb .why{display:block;margin-top:6px}
 .pw{position:relative;display:block}.pw input{padding-right:52px}
 .eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:44px;height:44px;border:0;background:none;font-size:20px;cursor:pointer;opacity:.55}
+
+/* ---- интерфейс ученика ---- */
+.sec{margin:22px 0 8px;font-size:15px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.task{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:72px;text-align:left;margin:0 0 10px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:16px;color:inherit;font:inherit;cursor:pointer}
+.task:hover:not(.static){border-color:var(--accent-2)}
+.task.static{cursor:default}.task.words{border-style:dashed}
+.task-main{display:grid;gap:2px;min-width:0}.task-main b{font-size:18px}.task-main small,.task-side small{color:var(--muted);font-size:14px}
+.task-side{display:grid;justify-items:end;gap:2px;flex:none}
+.chip{display:inline-block;padding:3px 10px;border-radius:99px;font-size:14px;font-weight:700}
+.chip.new{background:var(--accent-2);color:#fff}.chip.ok{background:color-mix(in srgb,var(--ok) 20%,transparent);color:var(--ok)}.chip.mid{background:color-mix(in srgb,#d49a00 22%,transparent);color:#a86a00}
+.nav{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:4px;padding:6px 8px max(8px,env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--border);z-index:10}
+.nav button{flex:1;max-width:160px;display:grid;justify-items:center;gap:0;padding:6px 4px;border:0;border-radius:12px;background:none;color:var(--muted);font:inherit;font-size:13px;cursor:pointer}
+.nav button.on{color:var(--accent-2);font-weight:700;background:color-mix(in srgb,var(--accent-2) 10%,transparent)}.nav .ni{font-size:22px;line-height:1.2}
+.btn{min-height:52px}
+main:has(.nav){padding-bottom:96px}
+.top{flex-wrap:wrap}
