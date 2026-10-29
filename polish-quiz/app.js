@@ -331,11 +331,15 @@
   }
 
   async function teacherTests() {
-    const [tests, logs] = await Promise.all([
+    const [tests, logs, states] = await Promise.all([
       must(sb.from("tests").select("*, questions(count)").order("created_at", { ascending: false })),
-      must(sb.from("agent_log").select("*").eq("seen", false).order("created_at", { ascending: false }).limit(8))]);
+      must(sb.from("agent_log").select("*").eq("seen", false).order("created_at", { ascending: false }).limit(8)),
+      must(sb.from("agent_state").select("checked_at").order("checked_at", { ascending: false }).limit(1))]);
+    const last = states[0] && new Date(states[0].checked_at), stale = !last || Date.now() - last > 4 * 864e5;
+    const agentLine = `<p class="hint" style="margin:0 0 10px">🤖 Помощник проверял материалы: ${last ? last.toLocaleDateString("ru-RU", { day: "numeric", month: "long" }) : "ещё не проверял"}${stale ? ` <b style="color:var(--bad)">· давно не проверял, сообщите владельцу</b>` : ""}</p>`;
     const icon = { draft: "📝", question: "❓", error: "⚠️", info: "ℹ️" };
     $app.innerHTML = `${tabs("tests")}
+      ${agentLine}
       ${logs.length ? `<div class="q" style="margin-bottom:14px"><b>🤖 Помощник сообщает</b>
         ${logs.map((l) => `<p style="margin:8px 0 0;font-size:15px">${icon[l.kind] || ""} ${esc(l.message)}${l.test_id ? ` <button class="link" data-e="${l.test_id}">Открыть</button>` : ""}${l.kind === "published" && l.test_id ? ` <button class="link" data-unpub="${l.test_id}">Снять с публикации</button>` : ""}</p>`).join("")}
         <div class="row"><button class="btn sm alt" id="seen">Понятно, скрыть</button></div></div>` : ""}
