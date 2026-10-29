@@ -1,0 +1,66 @@
+{
+  "topic": "Zaimki",
+  "student": "Юлия",
+  "created": "2026-10-29",
+  "tasks": [
+    {
+      "title": "Wybierz właściwą formę",
+      "instruction_ru": "Выбери правильную форму местоимения.",
+      "questions": [
+        { "id": "q1", "type": "choice", "prompt": "Opowiedz ___ o swojej podróży.", "options": ["mi", "mnie", "ja"], "answer": "mi",
+          "explanation_ru": "Opowiedzieć komu? — дательный падеж. Краткая форма: mi (не mnie)." },
+        { "id": "q2", "type": "choice", "prompt": "Wczoraj spotkałam Annę i długo rozmawiałam z ___.", "options": ["ona", "nią", "jej"], "answer": "nią",
+          "explanation_ru": "После предлога z нужен творительный падеж, форма на n-: z nią." },
+        { "id": "q3", "type": "choice", "prompt": "Znam Tomka od lat i bardzo ___ lubię.", "options": ["go", "mu", "on"], "answer": "go",
+          "explanation_ru": "Lubić kogo? — винительный падеж. Безударная краткая форма: go." },
+        { "id": "q4", "type": "choice", "prompt": "Dzieci są głodne. Daj ___ coś do jedzenia.", "options": ["im", "ich", "je"], "answer": "im",
+          "explanation_ru": "Dać komu? — дательный падеж множественного числа: im." },
+        { "id": "q5", "type": "choice", "prompt": "Ania zgubiła klucze, więc podwiozę ___ do pracy.", "options": ["ją", "jej", "ona"], "answer": "ją",
+          "explanation_ru": "Podwieźć kogo? — винительный падеж. Форма ją, а не jej." }
+      ]
+    },
+    {
+      "title": "Wpisz właściwą formę",
+      "instruction_ru": "Впиши форму местоимения. Помни: после предлога формы на n-.",
+      "questions": [
+        { "id": "q6", "type": "input", "prompt": "Idę do kina z ___ (ona).", "answer": ["nią"],
+          "explanation_ru": "После предлога z — творительный падеж, форма на n-: z nią." },
+        { "id": "q7", "type": "input", "prompt": "Dzwonię do ___ codziennie. (oni)", "answer": ["nich"],
+          "explanation_ru": "После предлога do — родительный падеж, форма на n-: do nich." },
+        { "id": "q8", "type": "input", "prompt": "To prezent dla ___. (ona)", "answer": ["niej"],
+          "explanation_ru": "После предлога dla — родительный падеж, форма на n-: dla niej." },
+        { "id": "q9", "type": "input", "prompt": "Rozmawiamy o ___. (ty)", "answer": ["tobie"],
+          "explanation_ru": "После предлога o — местный падеж. У местоимения ty он совпадает с дательным: o tobie." }
+      ]
+    },
+    {
+      "title": "Zaznacz wszystkie poprawne",
+      "instruction_ru": "Отметь ВСЕ правильные варианты.",
+      "questions": [
+        { "id": "q10", "type": "multi", "prompt": "Które zdania są poprawne?",
+          "options": ["Opowiedz mi o tym.", "Opowiedz mnie o tym.", "Znam ją od dawna.", "Znam ja od dawna."], "answer": ["Opowiedz mi o tym.", "Znam ją od dawna."],
+          "explanation_ru": "Opowiedzieć komu? — mi (дательный). Znać kogo? — ją (винительный). Формы mnie и ja здесь не подходят." },
+        { "id": "q11", "type": "multi", "prompt": "Które formy możesz użyć PO przyimku (z, do, o, dla)?",
+          "options": ["niego", "go", "nią", "ją", "nich", "je"], "answer": ["niego", "nią", "nich"],
+          "explanation_ru": "После предлога местоимения 3-го лица принимают форму на n-: niego, nią, nich. Краткие go, ją, je после предлога не ставятся." },
+        { "id": "q12", "type": "multi", "prompt": "Które zaimki dzierżawcze odpowiadają osobie «my» (nasz dom, nasza ulica)?",
+          "options": ["nasz", "wasz", "nasza", "ich", "jego"], "answer": ["nasz", "nasza"],
+          "explanation_ru": "«Наш» — nasz (м. р.), nasza (ж. р.), nasze (ср. р.). Wasz — «ваш», ich — «их», jego — «его»." }
+      ]
+    },
+    {
+      "title": "Znajdź poprawną formę",
+      "instruction_ru": "Выбери единственный правильный вариант.",
+      "questions": [
+        { "id": "q13", "type": "choice", "prompt": "Szukam ___. (ona)", "options": ["jej", "ją", "ona"], "answer": "jej",
+          "explanation_ru": "Szukać + родительный падеж (кого? чего?): szukam jej." },
+        { "id": "q14", "type": "choice", "prompt": "Anna bardzo lubi ___ pracę. (свою собственную)", "options": ["swoją", "jej", "ich"], "answer": "swoją",
+          "explanation_ru": "Когда «свой» относится к подлежащему (Anna lubi swoją pracę), используем swój." },
+        { "id": "q15", "type": "choice", "prompt": "Piotr dużo pracuje, więc trudno mi spotkać się z ___.", "options": ["nim", "niego", "go"], "answer": "nim",
+          "explanation_ru": "После предлога z — творительный падеж, форма на n-: z nim." },
+        { "id": "q16", "type": "choice", "prompt": "Mam dwóch braci i często ___ odwiedzam.", "options": ["ich", "im", "je"], "answer": "ich",
+          "explanation_ru": "Odwiedzać kogo? — винительный. Bracia — группа мужчин (męskoosobowe), поэтому ich; je — для женщин и предметов." }
+      ]
+    }
+  ]
+}
