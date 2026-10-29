@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>__TITLE__</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--text:#1d2530;--muted:#667085;--line:#dde3ea;--acc:#3b6ea5;--ok:#1b8a4b;--okbg:#e4f5ea;--bad:#c0392b;--badbg:#fbe9e7;--warn:#a86a00;--warnbg:#fff3d6}
+@media (prefers-color-scheme:dark){:root{--bg:#14181d;--card:#1d232b;--text:#e8edf2;--muted:#9aa5b1;--line:#2e3743;--acc:#6fa3dc;--ok:#52c585;--okbg:#18362a;--bad:#ee7d70;--badbg:#3a1f1c;--warn:#e8b04a;--warnbg:#3a2f17}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--text);font:18px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:max(16px,env(safe-area-inset-top)) 16px max(32px,env(safe-area-inset-bottom))}
+main{max-width:640px;margin:0 auto}
+h1{font-size:26px;margin:8px 0 4px}h2{font-size:21px;margin:0 0 4px}
+.muted{color:var(--muted);font-size:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin:14px 0}
+.btn{display:block;width:100%;min-height:54px;margin-top:16px;border:0;border-radius:14px;background:var(--acc);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+.btn.alt{background:transparent;color:var(--acc);border:2px solid var(--acc)}
+.btn:disabled{opacity:.5}
+.bar{height:6px;background:var(--line);border-radius:9px;overflow:hidden;margin:6px 0 4px}.bar i{display:block;height:100%;background:var(--acc)}
+.q{margin:0 0 22px}.q:last-child{margin-bottom:0}
+.prompt{font-weight:600;margin:0 0 10px}
+.opt{display:flex;gap:12px;align-items:center;min-height:52px;padding:10px 14px;margin:8px 0;border:2px solid var(--line);border-radius:14px;cursor:pointer;background:var(--card)}
+.opt input{width:22px;height:22px;flex:none;accent-color:var(--acc)}
+.opt.sel{border-color:var(--acc)}
+.opt.ok{border-color:var(--ok);background:var(--okbg)}
+.opt.bad{border-color:var(--bad);background:var(--badbg)}
+.opt.miss{border-color:var(--ok);border-style:dashed}
+.keys{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.keys button{min-width:44px;min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);font:inherit;font-size:20px;cursor:pointer}
+input[type=text]{width:100%;min-height:54px;padding:10px 14px;border:2px solid var(--line);border-radius:14px;background:var(--card);color:var(--text);font:inherit;font-size:20px}
+input[type=text]:focus{outline:none;border-color:var(--acc)}
+input[type=text].ok{border-color:var(--ok);background:var(--okbg)}input[type=text].bad{border-color:var(--bad);background:var(--badbg)}input[type=text].almost{border-color:var(--warn);background:var(--warnbg)}
+.fb{margin-top:10px;padding:12px 14px;border-radius:12px;font-size:16px}
+.fb.ok{background:var(--okbg);color:var(--ok)}.fb.bad{background:var(--badbg)}.fb.almost{background:var(--warnbg)}
+.fb b{color:var(--text)}.fb .why{display:block;margin-top:6px;color:var(--text)}
+.score{font-size:56px;font-weight:800;text-align:center;margin:6px 0 0}
+.err-item{border-top:1px solid var(--line);padding:12px 0}.err-item:first-child{border-top:0}
+.hint{color:var(--bad);min-height:22px;font-size:16px;margin:10px 0 0;text-align:center}
+</style>
+</head>
+<body data-webhook="__WEBHOOK__">
+<main id="app"></main>
+<script type="application/json" id="data">/*__DATA__*/</script>
+<script>
+(() => {
+  const DATA = JSON.parse(document.getElementById('data').textContent);
+  const WEBHOOK = document.body.dataset.webhook;
+  const app = document.getElementById('app');
+  const LETTERS = ['ą', 'ć', 'ę', 'ł', 'ń', 'ó', 'ś', 'ź', 'ż'];
+
+  const h = (tag, attrs, ...kids) => {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (k === 'class') el.className = v; else if (k.startsWith('on')) el[k] = v; else el.setAttribute(k, v);
+    }
+    for (const kid of kids.flat()) if (kid != null) el.append(kid.nodeType ? kid : document.createTextNode(kid));
+    return el;
+  };
+  const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const norm = (s) => s.trim().replace(/\s+/g, ' ').replace(/\.+$/, '').toLowerCase();
+  const strip = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ł/g, 'l');
+  const total = DATA.tasks.reduce((s, t) => s + t.questions.length, 0);
+  const pct = (a, b) => Math.round(a / b * 100);
+
+  let tasks, ti, results;
+
+  function newRun() {
+    tasks = DATA.tasks.map((t) => ({ ...t, questions: shuffle(t.questions).map((q) => (q.options ? { ...q, options: shuffle(q.options) } : q)) }));
+    ti = 0; results = [];
+  }
+
+  function start() {
+    app.replaceChildren(
+      h('h1', {}, DATA.topic),
+      h('p', { class: 'muted' }, DATA.student ? DATA.student + ', это твоя домашка.' : 'Домашнее задание.'),
+      h('div', { class: 'card' },
+        h('p', {}, `Заданий: ${DATA.tasks.length} · вопросов: ${total}`),
+        h('p', { class: 'muted' }, 'После каждого задания нажми «Проверить» — увидишь, где права, а где ошиблась, и почему.'),
+        h('button', { class: 'btn', onclick: () => { newRun(); showTask(); } }, 'Начать')));
+    window.scrollTo(0, 0);
+  }
+
+  // ---------- задание ----------
+  function showTask() {
+    const task = tasks[ti];
+    const widgets = []; // {q, read(), lock(result)}
+    const card = h('div', { class: 'card' });
+    task.questions.forEach((q, i) => {
+      const box = h('div', { class: 'q' }, h('p', { class: 'prompt' }, `${i + 1}. ${q.prompt}`));
+      const fb = h('div');
+      let w;
+      if (q.type === 'input') {
+        const inp = h('input', { type: 'text', autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false', 'aria-label': 'Ответ' });
+        const keys = h('div', { class: 'keys' }, LETTERS.map((c) => {
+          const b = h('button', { type: 'button', 'aria-label': c }, c);
+          b.onpointerdown = (e) => e.preventDefault();      // не терять фокус и клавиатуру
+          b.onclick = () => {
+            if (inp.disabled) return;
+            const s = inp.selectionStart ?? inp.value.length, e = inp.selectionEnd ?? s;
+            inp.value = inp.value.slice(0, s) + c + inp.value.slice(e);
+            inp.focus(); inp.setSelectionRange(s + 1, s + 1);
+          };
+          return b;
+        }));
+        box.append(keys, inp, fb);
+        w = { read: () => inp.value.trim() && inp.value, lock: (r) => { inp.disabled = true; inp.classList.add(r.status); } };
+      } else {
+        const multi = q.type === 'multi', name = 'q' + q.id;
+        const labels = q.options.map((o) => {
+          const input = h('input', { type: multi ? 'checkbox' : 'radio', name, value: o });
+          const lab = h('label', { class: 'opt' }, input, h('span', {}, o));
+          input.onchange = () => labels.forEach((l) => l.lab.classList.toggle('sel', l.input.checked));
+          return { o, input, lab };
+        });
+        box.append(...labels.map((l) => l.lab), fb);
+        w = {
+          read: () => { const v = labels.filter((l) => l.input.checked).map((l) => l.o); return v.length ? (multi ? v : v[0]) : null; },
+          lock: (r) => labels.forEach((l) => {
+            l.input.disabled = true; l.lab.classList.remove('sel');
+            const correct = multi ? q.answer.includes(l.o) : q.answer === l.o;
+            if (l.input.checked) l.lab.classList.add(correct ? 'ok' : 'bad');
+            else if (correct) l.lab.classList.add('miss');
+          })
+        };
+      }
+      widgets.push({ q, fb, ...w });
+      card.append(box);
+    });
+
+    const hint = h('p', { class: 'hint' });
+    const btn = h('button', { class: 'btn' }, 'Проверить');
+    btn.onclick = () => {
+      const answers = widgets.map((x) => x.read());
+      if (answers.some((a) => !a)) { hint.textContent = 'Ответь на все вопросы задания.'; return; }
+      hint.textContent = '';
+      widgets.forEach((x, i) => {
+        const r = grade(x.q, answers[i]);
+        results.push(r);
+        x.lock(r);
+        x.fb.replaceChildren(feedback(x.q, r));
+      });
+      const last = ti + 1 === tasks.length;
+      btn.textContent = last ? 'Показать результат' : 'Дальше';
+      btn.onclick = () => { if (last) finish(); else { ti++; showTask(); } };
+      btn.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    };
+
+    app.replaceChildren(
+      h('p', { class: 'muted' }, `Задание ${ti + 1} из ${tasks.length}`),
+      h('div', { class: 'bar' }, h('i', { style: `width:${ti / tasks.length * 100}%` })),
+      h('h2', {}, task.title),
+      h('p', { class: 'muted' }, task.instruction_ru),
+      card, hint, btn);
+    window.scrollTo(0, 0);
+  }
+
+  // ---------- проверка ----------
+  function grade(q, given) {
+    const r = { q, given, correct: false, status: 'bad', note: '' };
+    if (q.type === 'choice') r.correct = given === q.answer;
+    else if (q.type === 'multi') r.correct = given.length === q.answer.length && given.every((g) => q.answer.includes(g));
+    else {
+      const g = norm(given), exact = q.answer.some((a) => norm(a) === g);
+      if (exact) r.correct = true;
+      else if (q.answer.some((a) => strip(norm(a)) === strip(g))) r.status = 'almost';   // только диакритика — ошибка, но с подсказкой
+    }
+    if (r.correct) r.status = 'ok';
+    return r;
+  }
+
+  const shown = (q) => (Array.isArray(q.answer) ? q.answer.join(q.type === 'input' ? ' / ' : '; ') : q.answer);
+  const asText = (g) => (Array.isArray(g) ? g.join('; ') : g);
+
+  function feedback(q, r) {
+    const why = h('span', { class: 'why' }, q.explanation_ru);
+    if (r.correct) return h('div', { class: 'fb ok' }, '✅ Верно! ', h('span', { class: 'why' }, q.explanation_ru));
+    if (r.status === 'almost') return h('div', { class: 'fb almost' }, '🟡 Почти! Проверь польские буквы: правильно — ', h('b', {}, shown(q)), why);
+    return h('div', { class: 'fb bad' }, '❌ Правильно: ', h('b', {}, shown(q)), why);
+  }
+
+  // ---------- итоги ----------
+  function finish() {
+    const ok = results.filter((r) => r.correct).length, wrong = results.filter((r) => !r.correct);
+    send(ok, wrong);
+    app.replaceChildren(
+      h('h1', {}, 'Результат'),
+      h('div', { class: 'card' },
+        h('div', { class: 'score' }, `${ok} из ${results.length}`),
+        h('p', { class: 'muted', style: 'text-align:center' }, `${pct(ok, results.length)}%`)),
+      wrong.length
+        ? h('div', { class: 'card' }, h('h2', {}, 'Над чем поработать'),
+            wrong.map((r) => h('div', { class: 'err-item' },
+              h('div', { class: 'prompt' }, r.q.prompt),
+              h('div', { class: 'muted' }, 'Твой ответ: ', asText(r.given)),
+              h('div', {}, 'Правильно: ', h('b', {}, shown(r.q))),
+              h('div', { class: 'muted' }, r.q.explanation_ru))))
+        : h('div', { class: 'card' }, '🎉 Без ошибок! Отличная работа.'),
+      h('button', { class: 'btn', onclick: () => { newRun(); showTask(); } }, 'Пройти ещё раз'));
+    window.scrollTo(0, 0);
+  }
+
+  // Результаты уходят в Google Sheet (если задан адрес); сбой не мешает показать итог.
+  function send(ok, wrong) {
+    if (!WEBHOOK) return;
+    try {
+      fetch(WEBHOOK, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ date: new Date().toISOString(), student: DATA.student || '', topic: DATA.topic, score: ok, total: results.length,
+          mistakes: wrong.map((r) => ({ prompt: r.q.prompt, given: asText(r.given), correct: shown(r.q) })) }) }).catch(() => {});
+    } catch (e) { /* игнорируем */ }
+  }
+
+  start();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+{
+  "topic": "Zaimki",
+  "student": "Юлия",
+  "created": "2026-10-29",
+  "tasks": [
+    {
+      "title": "Wybierz właściwą formę",
+      "instruction_ru": "Выбери правильную форму местоимения.",
+      "questions": [
+        { "id": "q1", "type": "choice", "prompt": "Czy możesz pożyczyć ___ 20 zł?", "options": ["mi", "mnie", "ja"], "answer": "mi",
+          "explanation_ru": "Pożyczyć komu? — дательный падеж. После глагола без ударения ставим короткую форму: mi." },
+        { "id": "q2", "type": "choice", "prompt": "Dam ___ prezent. (ему)", "options": ["go", "mu", "jego"], "answer": "mu",
+          "explanation_ru": "Dać komu? — дательный падеж: mu. Форма go — винительный/родительный, jego — это «его» (чей?)." },
+        { "id": "q3", "type": "choice", "prompt": "Czekam na ___ już godzinę. (тебя)", "options": ["ciebie", "tobie", "ty"], "answer": "ciebie",
+          "explanation_ru": "Czekać na kogo? — винительный падеж. После предлога ставится полная форма: ciebie, а не cię." },
+        { "id": "q4", "type": "choice", "prompt": "Opowiadam ___ o swojej rodzinie. (им)", "options": ["im", "ich", "je"], "answer": "im",
+          "explanation_ru": "Opowiadać komu? — дательный падеж множественного числа: im." },
+        { "id": "q5", "type": "choice", "prompt": "Ona kocha ___ męża. (своего собственного)", "options": ["swojego", "jej", "jego"], "answer": "swojego",
+          "explanation_ru": "Когда «свой» относится к подлежащему (она любит своего мужа), используем swój. Jej — «её» в смысле чужого." }
+      ]
+    },
+    {
+      "title": "Wpisz właściwą formę",
+      "instruction_ru": "Впиши нужную форму местоимения в пропуск.",
+      "questions": [
+        { "id": "q6", "type": "input", "prompt": "Idę do kina z ___ (ona).", "answer": ["nią"],
+          "explanation_ru": "После предлога z нужен творительный падеж, а после предлога формы начинаются на n-: z nią." },
+        { "id": "q7", "type": "input", "prompt": "Mieszkam blisko ___ (oni).", "answer": ["nich"],
+          "explanation_ru": "Blisko + родительный падеж. После предлога — форма с n-: nich." },
+        { "id": "q8", "type": "input", "prompt": "Dzwonię do ___ codziennie. (on)", "answer": ["niego"],
+          "explanation_ru": "Dzwonić do kogo? — родительный падеж. После предлога do: niego." },
+        { "id": "q9", "type": "input", "prompt": "Rozmawiamy o ___ (ty).", "answer": ["tobie"],
+          "explanation_ru": "Rozmawiać o kim? — местный падеж. У местоимения ty он совпадает с дательным: tobie." }
+      ]
+    },
+    {
+      "title": "Zaznacz wszystkie poprawne",
+      "instruction_ru": "Отметь ВСЕ правильные варианты.",
+      "questions": [
+        { "id": "q10", "type": "multi", "prompt": "Które zdania są poprawne?",
+          "options": ["Daj mi książkę.", "Daj mnie książkę.", "Widzę go.", "Widzę jemu."], "answer": ["Daj mi książkę.", "Widzę go."],
+          "explanation_ru": "Dać komu? — mi (дательный). Widzieć kogo? — go (винительный). Jemu — это дательный, здесь он неуместен." },
+        { "id": "q11", "type": "multi", "prompt": "Które formy są krótkie (nieakcentowane)?",
+          "options": ["mi", "ciebie", "go", "nią", "ci", "jego"], "answer": ["mi", "go", "ci"],
+          "explanation_ru": "Краткие безударные формы: mi, ci, go, mu, cię. Ciebie, nią, jego — полные формы." },
+        { "id": "q12", "type": "multi", "prompt": "Które formy są poprawne po przyimku?",
+          "options": ["z nią", "z ją", "do niego", "do go"], "answer": ["z nią", "do niego"],
+          "explanation_ru": "После предлога местоимения 3-го лица принимают форму с n-: z nią, do niego. Краткие ją, go после предлога не ставятся." }
+      ]
+    },
+    {
+      "title": "Znajdź poprawną formę",
+      "instruction_ru": "Выбери единственный правильный вариант.",
+      "questions": [
+        { "id": "q13", "type": "choice", "prompt": "Szukam ___. (её)", "options": ["jej", "ją", "ona"], "answer": "jej",
+          "explanation_ru": "Szukać + родительный падеж (кого? чего?): szukam jej." },
+        { "id": "q14", "type": "choice", "prompt": "Chcę ___ coś powiedzieć. (тебе)", "options": ["ci", "cię", "ciebie"], "answer": "ci",
+          "explanation_ru": "Powiedzieć komu? — дательный падеж. Безударная форма: ci." },
+        { "id": "q15", "type": "choice", "prompt": "To jest mój brat. ___ ma na imię Paweł.", "options": ["On", "Jego", "Go"], "answer": "On",
+          "explanation_ru": "Подлежащее стоит в именительном падеже: on." },
+        { "id": "q16", "type": "choice", "prompt": "Moi rodzice są mili. Bardzo ___ lubię.", "options": ["ich", "im", "je"], "answer": "ich",
+          "explanation_ru": "Lubić kogo? — винительный. Для лиц мужского рода и смешанных групп (rodzice) форма ich; je — для женщин и предметов." }
+      ]
+    }
+  ]
+}
