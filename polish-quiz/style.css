@@ -1,20 +1,24 @@
 /* ---------- Polski Quiz: дизайн-система ---------- */
 :root{
-  --bg:#f4f5f9;--surface:#fff;--surface-2:#f1f3f9;--text:#171b2e;--muted:#6a7189;--line:#e3e6ef;
-  --accent:#3b5bdb;--accent-soft:#e8edff;--on-accent:#fff;
-  --ok:#1b8a4b;--ok-soft:#e3f4ea;--bad:#d03a3a;--bad-soft:#fdeaea;--warn:#a96a00;--warn-soft:#fff2d6;
-  --shadow:0 1px 2px rgba(20,24,50,.05),0 6px 18px rgba(20,24,50,.05);--r:14px;
+  --bg:#fbf9f5;--surface:#fff;--surface-2:#f7f2f5;--text:#2a1024;--muted:#5e5360;--line:#e4dee2;
+  --accent:#7a3b69;--accent-soft:#f2e4ef;--on-accent:#fff;
+  --ok:#1f7a4d;--ok-soft:#e3f3ea;--bad:#c0352c;--bad-soft:#fbe7e5;--warn:#7a4f00;--warn-soft:#fff1cf;
+  --shadow:0 1px 2px rgba(40,20,30,.06),0 2px 8px rgba(40,20,30,.04);--r:16px;--am:#c48a12;
   /* алиасы для обратной совместимости */
   --card:var(--surface);--border:var(--line);--accent-2:var(--accent);
 }
-@media (prefers-color-scheme:dark){:root{
-  --bg:#0e1120;--surface:#171b2d;--surface-2:#1f2438;--text:#e8ebf5;--muted:#9099b4;--line:#2a3050;
-  --accent:#8aa0ff;--accent-soft:#222a4d;--on-accent:#0e1120;
-  --ok:#4fc983;--ok-soft:#16352a;--bad:#ff7b7b;--bad-soft:#3b1f24;--warn:#f0b64d;--warn-soft:#3a2f17;--shadow:none}}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --bg:#16111a;--surface:#211a26;--surface-2:#2b2330;--text:#f4eef3;--muted:#b2a7b5;--line:#3a3040;
+  --accent:#e0a0d0;--accent-soft:#42263c;--on-accent:#2a1024;--am:#f2c060;
+  --ok:#6fd3a0;--ok-soft:#1b3a2b;--bad:#ff9a92;--bad-soft:#432120;--warn:#f5cf82;--warn-soft:#3f3213;--shadow:none}}
+:root[data-theme=dark]{
+  --bg:#16111a;--surface:#211a26;--surface-2:#2b2330;--text:#f4eef3;--muted:#b2a7b5;--line:#3a3040;
+  --accent:#e0a0d0;--accent-soft:#42263c;--on-accent:#2a1024;--am:#f2c060;
+  --ok:#6fd3a0;--ok-soft:#1b3a2b;--bad:#ff9a92;--bad-soft:#432120;--warn:#f5cf82;--warn-soft:#3f3213;--shadow:none}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
-main{max-width:720px;margin:0 auto;padding:0 16px 32px}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-x:hidden}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 Manrope,Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:720px;margin:0 auto;padding:0 max(16px,env(safe-area-inset-left)) 32px max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right));min-width:0}
 main:has(.nav){padding-bottom:96px}
 h1{margin:20px 0 4px;font-size:26px;line-height:1.2;font-weight:700;letter-spacing:-.01em}
 h2{margin:0 0 6px;font-size:20px;line-height:1.3;font-weight:650}
@@ -125,3 +129,34 @@ details>summary{cursor:pointer}
 .tabs{display:none}
 .chev{font-size:22px;line-height:1}
 .link+.link{margin-left:14px}
+
+.review li.r-ok{border-left:4px solid var(--ok)}.review li.r-almost{border-left:4px solid var(--am)}.review li.r-bad{border-left:4px solid var(--bad)}
+
+/* Подгонка под экран телефона: ничего не вылезает за ширину, поля не увеличивают страницу */
+body{overflow-x:hidden;min-width:0}
+img,svg,video,table,pre,iframe{max-width:100%}
+p,li,td,th,h1,h2,h3,small,b,span{overflow-wrap:anywhere}
+input,select,textarea,button{max-width:100%;box-sizing:border-box}
+input,select,textarea{font-size:16px}
+table{display:block;overflow-x:auto}
+@media (max-width:380px){
+  body{font-size:15px}
+  h1{font-size:23px}
+  .prompt,.task-main b{font-size:16px}
+  .keys button{min-width:36px;min-height:40px;font-size:18px}
+  .nav button{font-size:10px}.nav .ni{font-size:17px}
+  .row{flex-wrap:wrap}
+}
+@media (max-width:340px){main{padding-left:12px;padding-right:12px}}
+
+/* Новый дизайн (Claude Design): крупные элементы, сливовый акцент, Manrope */
+h1{font-size:28px;font-weight:800}
+.sec{font-size:13px;font-weight:800;letter-spacing:.06em}
+.btn{min-height:52px;font-weight:700}.btn.sm{min-height:40px}
+input[type=text],input[type=password],input[type=email],textarea,select{min-height:52px;border:1.5px solid var(--line)}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+.nav{border-radius:22px}.nav button{border-radius:18px;font-weight:700}
+@media (max-width:380px){h1{font-size:24px}}
+.btn:active{filter:brightness(.88);transform:scale(.98)}
+input:focus,textarea:focus,select:focus{box-shadow:0 0 0 4px var(--accent-soft)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}

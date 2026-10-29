@@ -124,12 +124,14 @@
   }
 
   const initials = (n) => String(n || "?").trim().split(/\s+/).map((w) => (w.match(/\p{L}/u) || [""])[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?";
+  const curTheme = () => document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
   function header(menu = "") {
     const n = me.profile.display_name;
     return `<div class="appbar"><div class="who"><span class="avatar">${esc(initials(n))}</span><span><b>${esc(n)}</b><small>${isTeacher() ? "учитель" : "ученик"}</small></span></div>
-      <details class="menu"><summary aria-label="Меню">⋯</summary><div class="menu-pop">${menu}<button id="chpw">🔑 Сменить пароль</button><button id="out">Выйти</button></div></details></div>`;
+      <details class="menu"><summary aria-label="Меню">⋯</summary><div class="menu-pop">${menu}<button id="theme">${curTheme() === "dark" ? "☀️ Светлая тема" : "🌙 Тёмная тема"}</button><button id="chpw">🔑 Сменить пароль</button><button id="out">Выйти</button></div></details></div>`;
   }
-  const bindHeader = () => { on("out", () => sb.auth.signOut()); on("chpw", () => showChangePassword()); };
+  const bindHeader = () => { on("theme", () => { const t = curTheme() === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = t; try { localStorage.setItem("theme", t); } catch (e) {} const d = document.querySelector(".menu"); if (d) d.open = false; document.getElementById("theme") && (document.getElementById("theme").textContent = t === "dark" ? "☀️ Светлая тема" : "🌙 Тёмная тема"); }); on("out", () => sb.auth.signOut()); on("chpw", () => showChangePassword()); };
   // меню закрывается по клику вне него
   document.addEventListener("click", (e) => document.querySelectorAll("details.menu[open]").forEach((d) => { if (!d.contains(e.target)) d.open = false; }));
 
@@ -296,7 +298,8 @@
     const total = run.results.length, score = run.results.filter((r) => r.correct).length, pct = Math.round(score / total * 100);
     const wrong = run.results.filter((r) => !r.correct);
     let saveErr = null;
-    if (!run.dry) try { await must(sb.from("attempts").insert({ test_id: run.test.id, score, total })); }
+    if (!run.dry) try { await must(sb.from("attempts").insert({ test_id: run.test.id, score, total, details: run.results.map((r) => ({
+      task: r.q.task_title || "", type: r.q.type, prompt: r.q.prompt, given: r.given, right: r.q.answers, ok: r.correct, almost: r.status === "almost", why: r.q.explain || "" })) })); }
     catch (e) { saveErr = h("p", { class: "err" }, "Не удалось сохранить результат: " + e.message); }
     const msg = pct === 100 ? "Отлично! Perfekcyjnie! 🎉" : pct >= 70 ? "Хороший результат! Dobrze!" : pct >= 40 ? "Неплохо, но стоит повторить." : "Не сдавайтесь — практика ведёт к результату!";
     $app.replaceChildren(
@@ -806,10 +809,29 @@
     $app.innerHTML = `${tabs("results")}<h1>Результаты</h1>
       ${att.length ? `<div class="list">${att.map((a) => {
         const pct = Math.round(a.score / a.total * 100);
-        return `<div class="li" style="cursor:default"><span class="li-main"><b>${esc(pn[a.user_id] || "—")}</b><small>${esc(tn[a.test_id] || "—")} · ${new Date(a.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</small></span>
-          <span class="li-side"><span class="chip ${pct >= 70 ? "ok" : "mid"}">${a.score}/${a.total}</span></span></div>`;
+        return `<button class="li" data-a="${a.id}"><span class="li-main"><b>${esc(pn[a.user_id] || "—")}</b><small>${esc(tn[a.test_id] || "—")} · ${new Date(a.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</small></span>
+          <span class="li-side"><span class="chip ${pct >= 70 ? "ok" : "mid"}">${a.score}/${a.total}</span><span class="chev">›</span></span></button>`;
       }).join("")}</div>` : `<div class="list"><div class="empty">Пока никто не проходил тесты.</div></div>`}`;
     bindTabs();
+    $app.querySelectorAll("[data-a]").forEach((b) => b.onclick = () => { const a = att.find((x) => x.id === b.dataset.a); attemptView(a, pn[a.user_id], tn[a.test_id]); });
+  }
+
+  // Разбор одного прохождения: что и как ответил ученик
+  function attemptView(a, who, title) {
+    const d = Array.isArray(a.details) ? a.details : null;
+    const txt = (g) => Array.isArray(g) ? g.join("; ") : String(g ?? "");
+    const row = (x, i) => `<li class="${x.ok ? "r-ok" : x.almost ? "r-almost" : "r-bad"}"><b>${i + 1}. ${esc(x.prompt)}</b><br>
+      ${x.ok ? "✅" : x.almost ? "🟡" : "❌"} Ответ ученика: <span class="u">${esc(txt(x.given))}</span>${x.ok ? "" : `<br>Верно: <span class="a">${esc(txt(x.right))}</span>`}${x.why && !x.ok ? `<br><small>${esc(x.why)}</small>` : ""}</li>`;
+    let body = `<p class="sub">Подробный разбор не сохранён: тест был пройден до появления этой функции.</p>`;
+    if (d) {
+      const wrong = d.filter((x) => !x.ok), tasks = [...new Set(d.map((x) => x.task))];
+      body = `${wrong.length ? `<h3 class="sec">Ошибки (${wrong.length})</h3><ul class="review">${d.map((x, i) => [x, i]).filter(([x]) => !x.ok).map(([x, i]) => row(x, i)).join("")}</ul>` : `<p class="sub">Ошибок нет 🎉</p>`}
+        <details class="acc"><summary class="li"><span class="li-main"><b>Все ответы</b><small>${d.length} вопросов по заданиям</small></span><span class="li-side chev">›</span></summary>
+        ${tasks.map((t) => `${t ? `<h3 class="sec">${esc(t)}</h3>` : ""}<ul class="review">${d.map((x, i) => [x, i]).filter(([x]) => x.task === t).map(([x, i]) => row(x, i)).join("")}</ul>`).join("")}</details>`;
+    }
+    $app.innerHTML = `${tabs("results")}<p><button class="link" id="bk">← К результатам</button></p><h1>${esc(who || "—")}</h1>
+      <p class="sub">${esc(title || "—")} · ${new Date(a.created_at).toLocaleString("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })} · <b>${a.score}/${a.total}</b></p>${body}`;
+    bindTabs(); $app.querySelector("#bk").onclick = () => teacherResults().catch(fail);
   }
 
   // ---------- старт ----------
