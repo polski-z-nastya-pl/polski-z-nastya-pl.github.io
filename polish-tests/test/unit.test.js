@@ -111,3 +111,9 @@ test('publish: PUT в docs/, возвращает ссылку GitHub Pages', as
     assert.equal(Buffer.from(calls[1][2].content, 'base64').toString(), '<html>');
   } finally { global.fetch = real; }
 });
+
+test('копия валидатора в polish-quiz совпадает с src/schema.js', () => {
+  const a = fs.readFileSync(path.join(__dirname, '..', 'src', 'schema.js'), 'utf8');
+  const b = fs.readFileSync(path.join(__dirname, '..', '..', 'polish-quiz', 'validate.js'), 'utf8');
+  assert.equal(b, a, 'после правки src/schema.js скопируйте его в polish-quiz/validate.js');
+});

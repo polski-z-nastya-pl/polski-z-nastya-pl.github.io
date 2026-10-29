@@ -95,68 +95,131 @@
     } catch (e) { fail(e); }
   }
 
+  // ---------- прохождение теста: одно задание на экране ----------
+  const LETTERS = ["ą", "ć", "ę", "ł", "ń", "ó", "ś", "ź", "ż"];
+  const h = (tag, attrs, ...kids) => {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) { if (k.startsWith("on")) el[k] = v; else el.setAttribute(k, v); }
+    for (const kid of kids.flat()) if (kid != null) el.append(kid.nodeType ? kid : document.createTextNode(kid));
+    return el;
+  };
+  const asList = (v) => Array.isArray(v) ? v : (v ? [v] : []);
+  // старые вопросы (type='type') приводим к input
+  const normQ = (q) => {
+    const type = q.type === "type" ? "input" : q.type;
+    return { ...q, type, answers: type === "choice" ? [q.answer] : (asList(q.answers).length ? q.answers : [q.answer]) };
+  };
+  const shown = (q) => q.answers.join(q.type === "input" ? " / " : "; ");
+  const given2text = (g) => Array.isArray(g) ? g.join("; ") : g;
+
   async function startTest(test) {
     try {
-      const qs = await must(sb.from("questions").select("*").eq("test_id", test.id).order("position"));
-      if (!qs.length) { alert("В этом тесте пока нет вопросов."); return; }
-      renderQ({ test, qs: qs.map((q) => ({ ...q, options: shuffle(q.options) })), i: 0, score: 0, wrong: [] });
+      const raw = await must(sb.from("questions").select("*").eq("test_id", test.id).order("position"));
+      if (!raw.length) { alert("В этом тесте пока нет вопросов."); return; }
+      const qs = raw.map(normQ);
+      const order = [], groups = new Map();
+      qs.forEach((q) => { const k = q.task_title + "\u0000" + q.task_instruction; if (!groups.has(k)) { groups.set(k, { title: q.task_title, instruction: q.task_instruction, qs: [] }); order.push(k); } groups.get(k).qs.push(q); });
+      const tasks = order.map((k) => { const g = groups.get(k); return { ...g, qs: shuffle(g.qs).map((q) => q.options?.length ? { ...q, options: shuffle(q.options) } : q) }; });
+      runTask({ test, tasks, ti: 0, results: [] });
     } catch (e) { fail(e); }
   }
 
-  function renderQ(quiz) {
-    const q = quiz.qs[quiz.i];
-    $app.innerHTML = `
-      <div class="top"><button class="link" id="back">← Выйти</button><span>${esc(quiz.test.title)} · ${quiz.i + 1}/${quiz.qs.length}</span></div>
-      <div class="bar"><i style="width:${quiz.i / quiz.qs.length * 100}%"></i></div>
-      <div class="q">
-        <h2>${esc(q.prompt)}</h2>
-        <p class="hint">${q.type === "type" ? "Введите ответ" : "Выберите вариант"}</p>
-        ${q.type === "choice"
-          ? `<div class="opts">${q.options.map((o) => `<button class="opt" data-v="${esc(o)}">${esc(o)}</button>`).join("")}</div>`
-          : `<form id="f"><input type="text" id="inp" autocomplete="off" autocapitalize="off" spellcheck="false" autofocus>
-             <div class="row"><button class="btn" type="submit">Проверить</button></div></form>`}
-        <div id="fb"></div>
-      </div>`;
-    on("back", () => { if (confirm("Выйти из теста? Прогресс теста будет потерян.")) testsList(); });
-    if (q.type === "choice") $app.querySelectorAll(".opt").forEach((b) => b.onclick = () => answer(quiz, q, b.dataset.v, b));
-    else $("f").onsubmit = (e) => { e.preventDefault(); const v = $("inp").value; if (v.trim()) answer(quiz, q, v); };
-  }
-
-  function answer(quiz, q, given, btn) {
-    let ok, note = "";
-    if (q.type === "choice") ok = given === q.answer;
+  function grade(q, given) {
+    const r = { q, given, correct: false, status: "bad" };
+    if (q.type === "choice") r.correct = given === q.answers[0];
+    else if (q.type === "multi") r.correct = given.length === q.answers.length && given.every((g) => q.answers.includes(g));
     else {
-      ok = norm(given) === norm(q.answer);
-      if (!ok && norm(strip(given)) === norm(strip(q.answer))) { ok = true; note = ` Правильное написание: <b>${esc(q.answer)}</b>.`; }
+      const g = norm(given);
+      if (q.answers.some((a) => norm(a) === g)) r.correct = true;
+      else if (q.answers.some((a) => norm(strip(a)) === norm(strip(given)))) r.status = "almost"; // только диакритика
     }
-    if (ok) quiz.score++; else quiz.wrong.push({ prompt: q.prompt, given, answer: q.answer });
-    if (q.type === "choice") {
-      $app.querySelectorAll(".opt").forEach((b) => { b.disabled = true; if (b.dataset.v === q.answer) b.classList.add("ok"); });
-      if (!ok) btn.classList.add("bad");
-    } else { $("inp").disabled = true; document.querySelector("#f .btn").remove(); }
-    const last = quiz.i + 1 === quiz.qs.length;
-    $("fb").innerHTML = `
-      <div class="fb ${ok ? "ok" : "bad"}">${ok ? "✅ Верно!" : `❌ Неверно. Правильный ответ: <b>${esc(q.answer)}</b>.`}${note}
-        ${q.explain ? `<br><small>${esc(q.explain)}</small>` : ""}
-        <button class="say" id="say" aria-label="Прослушать">🔊</button></div>
-      <div class="row"><button class="btn" id="next" autofocus>${last ? "Результат" : "Дальше"}</button></div>`;
-    on("say", () => speak(q.type === "type" || !/[а-яё]/i.test(q.answer) ? q.answer : q.prompt));
-    on("next", () => { quiz.i++; last ? results(quiz) : renderQ(quiz); });
+    if (r.correct) r.status = "ok";
+    return r;
   }
 
-  async function results(quiz) {
-    const total = quiz.qs.length, pct = Math.round(quiz.score / total * 100);
-    let saveErr = "";
-    try { await must(sb.from("attempts").insert({ test_id: quiz.test.id, score: quiz.score, total })); }
-    catch (e) { saveErr = `<p class="err">Не удалось сохранить результат: ${esc(e.message)}</p>`; }
+  function feedback(q, r) {
+    const why = q.explain ? h("span", { class: "why" }, q.explain) : null;
+    if (r.correct) return h("div", { class: "fb ok" }, "✅ Верно! ", why);
+    if (r.status === "almost") return h("div", { class: "fb almost" }, "🟡 Почти! Проверь польские буквы: правильно — ", h("b", {}, shown(q)), why);
+    return h("div", { class: "fb bad" }, "❌ Правильно: ", h("b", {}, shown(q)), why);
+  }
+
+  function runTask(run) {
+    const task = run.tasks[run.ti], widgets = [];
+    const card = h("div", { class: "q" });
+    task.qs.forEach((q, i) => {
+      const box = h("div", { class: "qbox" }, h("p", { class: "prompt" }, `${i + 1}. ${q.prompt}`));
+      const fb = h("div");
+      let w;
+      if (q.type === "input") {
+        const inp = h("input", { type: "text", autocomplete: "off", autocapitalize: "off", autocorrect: "off", spellcheck: "false", "aria-label": "Ответ" });
+        const keys = h("div", { class: "keys" }, LETTERS.map((c) => {
+          const b = h("button", { type: "button", "aria-label": c }, c);
+          b.onpointerdown = (e) => e.preventDefault();
+          b.onclick = () => { if (inp.disabled) return; const s = inp.selectionStart ?? inp.value.length, e = inp.selectionEnd ?? s; inp.value = inp.value.slice(0, s) + c + inp.value.slice(e); inp.focus(); inp.setSelectionRange(s + 1, s + 1); };
+          return b;
+        }));
+        box.append(keys, inp, fb);
+        w = { read: () => inp.value.trim() && inp.value, lock: (r) => { inp.disabled = true; inp.classList.add(r.status); } };
+      } else {
+        const multi = q.type === "multi";
+        const labels = q.options.map((o) => {
+          const input = h("input", { type: multi ? "checkbox" : "radio", name: "q" + q.id, value: o });
+          const lab = h("label", { class: "qopt" }, input, h("span", {}, o));
+          input.onchange = () => labels.forEach((l) => l.lab.classList.toggle("sel", l.input.checked));
+          return { o, input, lab };
+        });
+        box.append(...labels.map((l) => l.lab), fb);
+        w = {
+          read: () => { const v = labels.filter((l) => l.input.checked).map((l) => l.o); return v.length ? (multi ? v : v[0]) : null; },
+          lock: () => labels.forEach((l) => {
+            l.input.disabled = true; l.lab.classList.remove("sel");
+            const correct = q.answers.includes(l.o);
+            if (l.input.checked) l.lab.classList.add(correct ? "ok" : "bad"); else if (correct) l.lab.classList.add("miss");
+          })
+        };
+      }
+      widgets.push({ q, fb, ...w });
+      card.append(box);
+    });
+
+    const hint = h("p", { class: "err", style: "text-align:center" });
+    const btn = h("button", { class: "btn", style: "width:100%;margin-top:12px" }, "Проверить");
+    btn.onclick = () => {
+      const answers = widgets.map((x) => x.read());
+      if (answers.some((a) => !a)) { hint.textContent = "Ответь на все вопросы задания."; return; }
+      hint.textContent = "";
+      widgets.forEach((x, i) => { const r = grade(x.q, answers[i]); run.results.push(r); x.lock(r); x.fb.replaceChildren(feedback(x.q, r)); });
+      const last = run.ti + 1 === run.tasks.length;
+      btn.textContent = last ? "Показать результат" : "Дальше";
+      btn.onclick = () => { if (last) results(run); else { run.ti++; runTask(run); } };
+      btn.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    };
+    const back = h("button", { class: "link", onclick: () => { if (confirm("Выйти из теста? Прогресс теста будет потерян.")) testsList(); } }, "← Выйти");
+    $app.replaceChildren(
+      h("div", { class: "top" }, back, h("span", {}, `${run.test.title} · ${run.ti + 1}/${run.tasks.length}`)),
+      h("div", { class: "bar" }, h("i", { style: `width:${run.ti / run.tasks.length * 100}%` })),
+      task.title ? h("h2", {}, task.title) : null,
+      task.instruction ? h("p", { class: "hint" }, task.instruction) : null,
+      card, hint, btn);
+    window.scrollTo(0, 0);
+  }
+
+  async function results(run) {
+    const total = run.results.length, score = run.results.filter((r) => r.correct).length, pct = Math.round(score / total * 100);
+    const wrong = run.results.filter((r) => !r.correct);
+    let saveErr = null;
+    try { await must(sb.from("attempts").insert({ test_id: run.test.id, score, total })); }
+    catch (e) { saveErr = h("p", { class: "err" }, "Не удалось сохранить результат: " + e.message); }
     const msg = pct === 100 ? "Отлично! Perfekcyjnie! 🎉" : pct >= 70 ? "Хороший результат! Dobrze!" : pct >= 40 ? "Неплохо, но стоит повторить." : "Не сдавайтесь — практика ведёт к результату!";
-    $app.innerHTML = `
-      <h1>Результат</h1><div class="score">${quiz.score}/${total}</div>
-      <p class="sub" style="text-align:center">${pct}% · ${msg}</p>${saveErr}
-      ${quiz.wrong.length ? `<h3>Над чем поработать</h3><ul class="review">${quiz.wrong.map((w) =>
-        `<li>${esc(w.prompt)}<br>Ваш ответ: <span class="u">${esc(w.given)}</span> · Верно: <span class="a">${esc(w.answer)}</span></li>`).join("")}</ul>` : ""}
-      <div class="row"><button class="btn" id="again">Ещё раз</button><button class="btn alt" id="tl">К тестам</button></div>`;
-    on("again", () => startTest(quiz.test)); on("tl", testsList);
+    $app.replaceChildren(
+      h("h1", {}, "Результат"), h("div", { class: "score" }, `${score}/${total}`),
+      h("p", { class: "sub", style: "text-align:center" }, `${pct}% · ${msg}`), saveErr,
+      wrong.length ? h("div", {}, h("h3", {}, "Над чем поработать"), h("ul", { class: "review" }, wrong.map((r) => h("li", {},
+        r.q.prompt, h("br"), "Ваш ответ: ", h("span", { class: "u" }, given2text(r.given)), " · Верно: ", h("span", { class: "a" }, shown(r.q)),
+        r.q.explain ? h("br") : null, r.q.explain ? h("small", {}, r.q.explain) : null)))) : null,
+      h("div", { class: "row" }, h("button", { class: "btn", onclick: () => startTest(run.test) }, "Ещё раз"), h("button", { class: "btn alt", onclick: testsList }, "К тестам")));
+    window.scrollTo(0, 0);
   }
 
   async function history() {
@@ -235,11 +298,12 @@
   async function teacherTests() {
     const tests = await must(sb.from("tests").select("*, questions(count)").order("created_at", { ascending: false }));
     $app.innerHTML = `${tabs("tests")}
-      <div class="row" style="margin:0 0 12px"><button class="btn sm" id="new">+ Новый тест</button></div>
+      <div class="row" style="margin:0 0 12px"><button class="btn sm" id="new">+ Новый тест</button><button class="btn sm alt" id="imp">⬆ Загрузить тест (JSON)</button></div>
       ${tests.map((t) => `<div class="item"><span class="badge">${t.level}</span><span class="badge ${t.published ? "" : "off"}">${t.published ? "опубликован" : "черновик"}</span>
         <b>${esc(t.title)}</b><br><small>${esc(t.description)} · вопросов: ${t.questions[0].count}</small>
         <div class="row"><button class="btn sm alt" data-e="${t.id}">Редактировать</button></div></div>`).join("") || `<p class="sub">Тестов пока нет.</p>`}`;
     bindTabs();
+    on("imp", importView);
     on("new", async () => {
       try {
         const t = await must(sb.from("tests").insert({ title: "Новый тест", level: "A2" }).select().single());
@@ -284,12 +348,16 @@
         editTest(id);
       });
       $app.querySelectorAll("[data-qs]").forEach((b) => b.onclick = async () => {
-        const f = b.closest(".item"), type = f.querySelector(".qt").value;
-        const options = type === "choice" ? f.querySelector(".qo").value.split("\n").map((s) => s.trim()).filter(Boolean) : [];
-        const answer = f.querySelector(".qa").value.trim();
-        const msg = f.querySelector(".err");
-        if (type === "choice" && !options.includes(answer)) { msg.textContent = "Правильный ответ должен совпадать с одним из вариантов."; return; }
-        const { error } = await sb.from("questions").update({ type, prompt: f.querySelector(".qp").value, options, answer, explain: f.querySelector(".qx").value }).eq("id", b.dataset.qs);
+        const f = b.closest(".item"), type = f.querySelector(".qt").value, msg = f.querySelector(".err");
+        const lines = (sel) => f.querySelector(sel).value.split("\n").map((x) => x.trim()).filter(Boolean);
+        const options = type === "input" ? [] : lines(".qo"), answers = lines(".qa");
+        const bad = !answers.length ? "Укажите правильный ответ."
+          : type === "choice" && (answers.length !== 1 || !options.includes(answers[0])) ? "Для выбора нужен один ответ, совпадающий с вариантом."
+          : type === "multi" && (answers.length < 2 || answers.length >= options.length || !answers.every((a) => options.includes(a))) ? "Для «отметить все» нужно ≥2 верных (не все), каждый из вариантов."
+          : type !== "input" && options.length < 2 ? "Нужно минимум 2 варианта." : "";
+        if (bad) { msg.style.color = "var(--bad)"; msg.textContent = bad; return; }
+        const { error } = await sb.from("questions").update({ type, prompt: f.querySelector(".qp").value, options, answer: answers[0], answers: type === "choice" ? [] : answers,
+          explain: f.querySelector(".qx").value, task_title: f.querySelector(".qtt").value, task_instruction: f.querySelector(".qti").value }).eq("id", b.dataset.qs);
         msg.style.color = error ? "var(--bad)" : "var(--ok)"; msg.textContent = error ? error.message : "Сохранено";
       });
       $app.querySelectorAll("[data-qd]").forEach((b) => b.onclick = async () => {
@@ -299,14 +367,56 @@
   }
 
   function qForm(q) {
+    const t = q.type === "type" ? "input" : q.type;
+    const ans = t === "choice" ? [q.answer] : (Array.isArray(q.answers) && q.answers.length ? q.answers : [q.answer]);
     return `<div class="item">
-      <label class="field">Тип<select class="qt"><option value="choice" ${q.type === "choice" ? "selected" : ""}>Выбор ответа</option><option value="type" ${q.type === "type" ? "selected" : ""}>Ввод слова</option></select></label>
-      <label class="field">Вопрос<input type="text" class="qp" value="${esc(q.prompt)}"></label>
-      <label class="field">Варианты (по одному в строке; только для «Выбор ответа»)<textarea class="qo">${esc(q.options.join("\n"))}</textarea></label>
-      <label class="field">Правильный ответ<input type="text" class="qa" value="${esc(q.answer)}"></label>
+      <label class="field">Тип<select class="qt"><option value="choice" ${t === "choice" ? "selected" : ""}>Выбор ответа</option><option value="multi" ${t === "multi" ? "selected" : ""}>Отметить все верные</option><option value="input" ${t === "input" ? "selected" : ""}>Ввод слова</option></select></label>
+      <label class="field">Задание (заголовок, необязательно)<input type="text" class="qtt" value="${esc(q.task_title)}"></label>
+      <label class="field">Инструкция к заданию (необязательно)<input type="text" class="qti" value="${esc(q.task_instruction)}"></label>
+      <label class="field">Вопрос (в «Ввод слова» нужен пропуск ___)<input type="text" class="qp" value="${esc(q.prompt)}"></label>
+      <label class="field">Варианты (по одному в строке; для выбора и «отметить все»)<textarea class="qo">${esc((q.options || []).join("\n"))}</textarea></label>
+      <label class="field">Правильный ответ(ы) (по одному в строке; для «Выбор ответа» — один)<textarea class="qa">${esc(ans.join("\n"))}</textarea></label>
       <label class="field">Пояснение (необязательно)<input type="text" class="qx" value="${esc(q.explain)}"></label>
       <div class="err"></div>
       <div class="row"><button class="btn sm" data-qs="${q.id}">Сохранить</button><button class="btn sm danger" data-qd="${q.id}">Удалить</button></div></div>`;
+  }
+
+  // ---------- импорт теста из JSON (формат генератора polish-tests) ----------
+  async function importView() {
+    const students = await must(sb.from("profiles").select("id,display_name").eq("role", "student").order("display_name"));
+    $app.innerHTML = `<div class="top"><button class="link" id="back">← К тестам</button><span>Загрузка теста</span></div>
+      <div class="q">
+        <p class="hint">Загрузите файл .json (его делает генератор) или вставьте текст. Тест появится черновиком — его можно проверить и поправить.</p>
+        <label class="field">Файл<input type="file" id="fi" accept=".json,application/json"></label>
+        <label class="field">…или вставьте JSON<textarea id="ft" style="min-height:140px" spellcheck="false"></textarea></label>
+        <label class="field">Уровень<select id="fl"><option>A2</option><option>B1</option></select></label>
+        <div class="field">Кому назначить (необязательно):
+          ${students.map((p) => `<label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" data-as="${p.id}"> ${esc(p.display_name)}</label>`).join("") || "<i>Учеников пока нет</i>"}</div>
+        <label class="field" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="fp"> Сразу опубликовать</label>
+        <div class="err" id="er"></div>
+        <button class="btn" id="go">Загрузить</button>
+      </div>`;
+    on("back", teacherTests);
+    $("fi").onchange = async (e) => { const f = e.target.files[0]; if (f) $("ft").value = await f.text(); };
+    on("go", async () => {
+      const er = $("er"); er.style.color = "var(--bad)";
+      let t;
+      try { t = JSON.parse($("ft").value); } catch (e) { er.textContent = "Не удалось прочитать JSON: " + e.message; return; }
+      const errs = window.validateTest(t);
+      if (errs.length) { er.innerHTML = "Тест не прошёл проверку:<br>• " + errs.slice(0, 12).map(esc).join("<br>• "); return; }
+      try {
+        const test = await must(sb.from("tests").insert({ title: t.topic + (t.student ? ` (${t.student})` : ""), description: t.created ? "Создан " + t.created : "", level: $("fl").value, published: $("fp").checked }).select().single());
+        let pos = 0;
+        const rows = t.tasks.flatMap((task) => task.questions.map((q) => ({
+          test_id: test.id, position: ++pos, type: q.type, prompt: q.prompt, options: q.options || [],
+          answer: Array.isArray(q.answer) ? q.answer[0] : q.answer, answers: q.type === "choice" ? [] : q.answer,
+          explain: q.explanation_ru, task_title: task.title, task_instruction: task.instruction_ru })));
+        await must(sb.from("questions").insert(rows));
+        const ids = [...$app.querySelectorAll("[data-as]:checked")].map((c) => c.dataset.as);
+        if (ids.length) await must(sb.from("test_assignments").insert(ids.map((u) => ({ test_id: test.id, user_id: u }))));
+        editTest(test.id);
+      } catch (e) { er.textContent = "Ошибка сохранения: " + e.message; }
+    });
   }
 
   async function setAssign(testId, userId, on, box) {

@@ -55,4 +55,5 @@ function validate(t, { strict = false } = {}) {
   return e;
 }
 
-module.exports = { validate };
+if (typeof module !== 'undefined') module.exports = { validate };
+else window.validateTest = validate;

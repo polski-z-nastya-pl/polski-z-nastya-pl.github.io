@@ -48,3 +48,12 @@ textarea{min-height:70px;resize:vertical}
 .err{color:var(--bad);font-size:14px;min-height:20px}
 .flash{text-align:center;padding:36px 16px}.flash .w{font-size:32px;font-weight:700}.flash .tr{font-size:22px;margin-top:12px}.flash .ex{color:var(--muted);margin-top:6px}
 table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
+.qbox{margin:0 0 22px}.prompt{font-weight:600;margin:0 0 10px}
+.qopt{display:flex;gap:12px;align-items:center;min-height:52px;padding:10px 14px;margin:8px 0;border:2px solid var(--border);border-radius:14px;cursor:pointer;background:var(--card)}
+.qopt input{width:22px;height:22px;flex:none;accent-color:var(--accent-2)}
+.qopt.sel{border-color:var(--accent-2)}.qopt.ok{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 16%,transparent)}
+.qopt.bad{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}.qopt.miss{border-color:var(--ok);border-style:dashed}
+.keys{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.keys button{min-width:44px;min-height:44px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font:inherit;font-size:20px;cursor:pointer}
+input[type=text].ok{border-color:var(--ok)}input[type=text].bad{border-color:var(--bad)}input[type=text].almost{border-color:#d49a00}
+.fb.almost{background:color-mix(in srgb,#d49a00 18%,transparent)}.fb .why{display:block;margin-top:6px}
