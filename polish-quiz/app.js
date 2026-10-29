@@ -28,8 +28,8 @@
     const reg = mode === "register";
     $app.innerHTML = `
       <h1><span class="flag"></span>Polski Quiz</h1>
-      <p class="sub">Тесты и карточки для изучения польского (A2–B1)</p>
-      <div class="tabs"><button class="tab ${reg ? "" : "on"}" id="tl">Вход</button><button class="tab ${reg ? "on" : ""}" id="tr">Регистрация</button></div>
+      <p class="sub">Тесты и карточки для изучения польского. Доступ выдаёт учитель: логин и пароль придут от неё.</p>
+      <h3 style="margin:0 0 10px">Вход</h3>
       <form id="af" class="q">
         ${reg ? `<label class="field">Имя<input type="text" id="nm" required></label>` : ""}
         <label class="field">Email<input type="text" id="em" autocomplete="email" required></label>
@@ -40,7 +40,7 @@
         <div class="err" id="er"></div>
         <button class="btn" type="submit" style="width:100%">${reg ? "Создать аккаунт" : "Войти"}</button>
       </form>`;
-    on("tl", () => authView("login")); on("tr", () => authView("register"));
+
     on("eye", () => {
       const inp = $("pw"), show = inp.type === "password";
       inp.type = show ? "text" : "password";
@@ -140,7 +140,7 @@
   const shown = (q) => q.answers.join(q.type === "input" ? " / " : "; ");
   const given2text = (g) => Array.isArray(g) ? g.join("; ") : g;
 
-  async function startTest(test) {
+  async function startTest(test, opts = {}) {
     try {
       const raw = await must(sb.from("questions").select("*").eq("test_id", test.id).order("position"));
       if (!raw.length) { alert("В этом тесте пока нет вопросов."); return; }
@@ -148,7 +148,7 @@
       const order = [], groups = new Map();
       qs.forEach((q) => { const k = q.task_title + "\u0000" + q.task_instruction; if (!groups.has(k)) { groups.set(k, { title: q.task_title, instruction: q.task_instruction, qs: [] }); order.push(k); } groups.get(k).qs.push(q); });
       const tasks = order.map((k) => { const g = groups.get(k); return { ...g, qs: shuffle(g.qs).map((q) => q.options?.length ? { ...q, options: shuffle(q.options) } : q) }; });
-      runTask({ test, tasks, ti: 0, results: [] });
+      runTask({ test, tasks, ti: 0, results: [], dry: !!opts.dry });
     } catch (e) { fail(e); }
   }
 
@@ -223,7 +223,7 @@
       btn.onclick = () => { if (last) results(run); else { run.ti++; runTask(run); } };
       btn.scrollIntoView({ block: "nearest", behavior: "smooth" });
     };
-    const back = h("button", { class: "link", onclick: () => { if (confirm("Выйти из теста? Прогресс теста будет потерян.")) testsList(); } }, "← Выйти");
+    const back = h("button", { class: "link", onclick: () => { if (confirm("Выйти из теста? Прогресс теста будет потерян.")) (run.dry ? teacher("check") : testsList()); } }, "← Выйти");
     $app.replaceChildren(
       h("div", { class: "top" }, back, h("span", {}, `${run.test.title} · ${run.ti + 1}/${run.tasks.length}`)),
       h("div", { class: "bar" }, h("i", { style: `width:${run.ti / run.tasks.length * 100}%` })),
@@ -237,16 +237,16 @@
     const total = run.results.length, score = run.results.filter((r) => r.correct).length, pct = Math.round(score / total * 100);
     const wrong = run.results.filter((r) => !r.correct);
     let saveErr = null;
-    try { await must(sb.from("attempts").insert({ test_id: run.test.id, score, total })); }
+    if (!run.dry) try { await must(sb.from("attempts").insert({ test_id: run.test.id, score, total })); }
     catch (e) { saveErr = h("p", { class: "err" }, "Не удалось сохранить результат: " + e.message); }
     const msg = pct === 100 ? "Отлично! Perfekcyjnie! 🎉" : pct >= 70 ? "Хороший результат! Dobrze!" : pct >= 40 ? "Неплохо, но стоит повторить." : "Не сдавайтесь — практика ведёт к результату!";
     $app.replaceChildren(
-      h("h1", {}, "Результат"), h("div", { class: "score" }, `${score}/${total}`),
+      h("h1", {}, "Результат"), run.dry ? h("div", { class: "fb almost", style: "margin:0 0 8px" }, "🧪 Пробный режим: результат не сохранён.") : null, h("div", { class: "score" }, `${score}/${total}`),
       h("p", { class: "sub", style: "text-align:center" }, `${pct}% · ${msg}`), saveErr,
       wrong.length ? h("div", {}, h("h3", {}, "Над чем поработать"), h("ul", { class: "review" }, wrong.map((r) => h("li", {},
         r.q.prompt, h("br"), "Ваш ответ: ", h("span", { class: "u" }, given2text(r.given)), " · Верно: ", h("span", { class: "a" }, shown(r.q)),
         r.q.explain ? h("br") : null, r.q.explain ? h("small", {}, r.q.explain) : null)))) : null,
-      h("div", { class: "row" }, h("button", { class: "btn", onclick: () => startTest(run.test) }, "Ещё раз"), h("button", { class: "btn alt", onclick: testsList }, "К тестам")));
+      h("div", { class: "row" }, h("button", { class: "btn", onclick: () => startTest(run.test, { dry: run.dry }) }, "Ещё раз"), h("button", { class: "btn alt", onclick: () => (run.dry ? teacher("check") : testsList()) }, run.dry ? "К списку тестов" : "К заданиям")));
     window.scrollTo(0, 0);
   }
 
@@ -309,7 +309,7 @@
 
   // ---------- панель учителя ----------
   function tabs(cur) {
-    const items = [["tests", "📝", "Тесты"], ["students", "👥", "Ученики"], ["words", "🃏", "Слова"], ["results", "📈", "Результаты"]];
+    const items = [["tests", "📝", "Тесты"], ["students", "👥", "Ученики"], ["words", "🃏", "Слова"], ["results", "📈", "Результаты"], ["check", "🧪", "Проверка"]];
     return `${header('<button class="link" id="prev">👁 Как видит ученик</button> ')}
       <nav class="nav" aria-label="Панель учителя">${items.map(([k, i, t]) =>
         `<button data-tab="${k}" class="${k === cur ? "on" : ""}" ${k === cur ? 'aria-current="page"' : ""}><span class="ni">${i}</span>${t}</button>`).join("")}</nav>`;
@@ -324,6 +324,7 @@
     try {
       if (tab === "tests") return teacherTests();
       if (tab === "students") return teacherStudents();
+      if (tab === "check") return teacherCheck();
       if (tab === "words") return teacherWords();
       return teacherResults();
     } catch (e) { fail(e); }
@@ -336,7 +337,7 @@
     const icon = { draft: "📝", question: "❓", error: "⚠️", info: "ℹ️" };
     $app.innerHTML = `${tabs("tests")}
       ${logs.length ? `<div class="q" style="margin-bottom:14px"><b>🤖 Помощник сообщает</b>
-        ${logs.map((l) => `<p style="margin:8px 0 0;font-size:15px">${icon[l.kind] || ""} ${esc(l.message)}${l.test_id ? ` <button class="link" data-e="${l.test_id}">Открыть</button>` : ""}</p>`).join("")}
+        ${logs.map((l) => `<p style="margin:8px 0 0;font-size:15px">${icon[l.kind] || ""} ${esc(l.message)}${l.test_id ? ` <button class="link" data-e="${l.test_id}">Открыть</button>` : ""}${l.kind === "published" && l.test_id ? ` <button class="link" data-unpub="${l.test_id}">Снять с публикации</button>` : ""}</p>`).join("")}
         <div class="row"><button class="btn sm alt" id="seen">Понятно, скрыть</button></div></div>` : ""}
       <p class="hint">Новые тесты сначала черновики: их видите только вы. Чтобы ученик увидел тест, откройте его, поставьте «Опубликован» и отметьте ученика (здесь или во вкладке «Ученики»).</p>
       <div class="row" style="margin:0 0 12px"><button class="btn sm" id="new">+ Новый тест</button><button class="btn sm alt" id="imp">⬆ Загрузить тест (JSON)</button></div>
@@ -345,6 +346,12 @@
         <div class="row"><button class="btn sm alt" data-e="${t.id}">Редактировать</button></div></div>`).join("") || `<p class="sub">Тестов пока нет.</p>`}`;
     bindTabs();
     on("imp", importView);
+    $app.querySelectorAll("[data-unpub]").forEach((b) => b.onclick = async () => {
+      if (!confirm("Снять тест с публикации? Ученики перестанут его видеть.")) return;
+      const { error } = await sb.from("tests").update({ published: false }).eq("id", b.dataset.unpub);
+      if (error) { alert("Не удалось: " + error.message); return; }
+      teacherTests();
+    });
     on("seen", async () => { await sb.from("agent_log").update({ seen: true }).in("id", logs.map((l) => l.id)); teacherTests(); });
     on("new", async () => {
       try {
@@ -497,6 +504,20 @@
     });
   }
 
+  function showCredentials(r) {
+    const url = location.origin + location.pathname;
+    const text = `Здравствуйте, ${r.name}! 👋\nДля занятий польским есть приложение с заданиями:\n${url}\n\nВход: ${r.email}\nПароль: ${r.password}\n\nВойти нужно один раз, приложение запомнит вас.`;
+    const mail = `mailto:${r.email}?subject=${encodeURIComponent("Доступ к заданиям по польскому")}&body=${encodeURIComponent(text)}`;
+    $app.innerHTML = `<div class="top"><button class="link" id="back">← К ученикам</button><span>Приглашение</span></div>
+      <div class="q"><h2>✅ Ученик добавлен</h2>
+        <p class="hint">Отправьте это сообщение ученику. Пароль показывается один раз; если потеряется, в списке будет кнопка «🔑 Новый пароль».</p>
+        <textarea id="inv" readonly style="min-height:190px">${esc(text)}</textarea>
+        <div class="row"><button class="btn" id="cp">Скопировать приглашение</button><a class="btn alt" href="${esc(mail)}" style="text-decoration:none">✉ Открыть письмо</a></div>
+        <div class="err" id="er"></div></div>`;
+    on("back", teacherStudents);
+    on("cp", async () => { try { await navigator.clipboard.writeText(text); $("er").style.color = "var(--ok)"; $("er").textContent = "Скопировано. Вставьте в мессенджер."; } catch { $("inv").select(); $("er").textContent = "Выделено: скопируйте вручную."; } });
+  }
+
   function showPassword(p, password) {
     $app.innerHTML = `<div class="top"><button class="link" id="back">← К ученикам</button><span>Новый пароль</span></div>
       <div class="q"><h2>${esc(p.display_name)}</h2>
@@ -520,9 +541,11 @@
     const invOf = Object.fromEntries(invs.map((i) => [i.user_id, i.token]));
     $app.innerHTML = `${tabs("students")}
       <div class="q" style="margin-bottom:14px">
-        <b>Добавить ученика по почте</b>
-        <p class="hint">Впишите email ученика. После этого он сам регистрируется в приложении с этим email и своим паролем (вкладка «Регистрация»). Остальным регистрация закрыта.</p>
-        <div class="row" style="margin:0"><input type="text" id="ae" placeholder="email ученика" inputmode="email" autocapitalize="off" style="flex:2;min-width:180px"><button class="btn sm" id="aa">Добавить</button></div>
+        <b>Добавить ученика</b>
+        <p class="hint">Впишите имя и email. Приложение создаст доступ и покажет готовое приглашение со ссылкой, логином и паролем: его остаётся отправить ученику (мессенджер или почта).</p>
+        <label class="field">Имя<input type="text" id="an" placeholder="Например, Юлия"></label>
+        <label class="field">Email<input type="text" id="ae" placeholder="email ученика" inputmode="email" autocapitalize="off"></label>
+        <div class="row" style="margin:0"><button class="btn sm" id="aa">Создать доступ</button></div>
         <div class="err" id="aer"></div>
         ${pending.length ? `<p class="hint" style="margin-top:10px">Ждут регистрации:</p>${pending.map((a) => `<div style="display:flex;justify-content:space-between;align-items:center;font-size:15px"><span>${esc(a.email)}</span><button class="link" data-del="${esc(a.email)}">убрать</button></div>`).join("")}` : ""}
       </div>
@@ -542,11 +565,12 @@
     bindTabs();
     $app.querySelectorAll("[data-t]").forEach((c) => c.onchange = () => setAssign(c.dataset.t, c.dataset.u, c.checked, c));
     on("aa", async () => {
-      const email = $("ae").value.trim().toLowerCase(), er = $("aer");
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { er.style.color = "var(--bad)"; er.textContent = "Проверьте email."; return; }
-      const { error } = await sb.from("allowed_emails").upsert({ email });
-      if (error) { er.style.color = "var(--bad)"; er.textContent = error.message; return; }
-      teacherStudents();
+      const email = $("ae").value.trim().toLowerCase(), name = $("an").value.trim(), er = $("aer");
+      er.style.color = "var(--bad)";
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { er.textContent = "Проверьте email."; return; }
+      $("aa").disabled = true; er.textContent = "";
+      try { showCredentials(await callFn({ action: "add_student", email, name })); }
+      catch (e) { er.textContent = e.message; $("aa").disabled = false; }
     });
     $app.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => {
       if (confirm("Убрать " + b.dataset.del + " из списка? Он не сможет зарегистрироваться.")) {
@@ -574,6 +598,17 @@
       if (error) alert("Не удалось сохранить: " + error.message);
       teacherStudents();
     });
+  }
+
+  // ---------- «Проверка»: учитель решает любые тесты (в том числе черновики), результат не сохраняется ----------
+  async function teacherCheck() {
+    const tests = await must(sb.from("tests").select("*, questions(count)").order("created_at", { ascending: false }));
+    $app.innerHTML = `${tabs("check")}<h1>Проверка тестов</h1>
+      <p class="sub">Пройдите тест как ученик, чтобы увидеть, как он выглядит и работает. Здесь доступны и черновики. Результат не сохраняется и ученикам не виден.</p>
+      ${tests.map((t) => `<button class="task" data-dry="${t.id}"><span class="task-main"><b>${esc(t.title)}</b><small>${esc(t.description || "")} · вопросов: ${t.questions[0].count}</small></span>
+        <span class="task-side"><span class="chip ${t.published ? "ok" : "mid"}">${t.published ? "опубликован" : "черновик"}</span><small>Пройти пробно</small></span></button>`).join("") || `<p class="hint">Тестов пока нет.</p>`}`;
+    bindTabs();
+    $app.querySelectorAll("[data-dry]").forEach((b) => b.onclick = () => startTest(tests.find((t) => t.id === b.dataset.dry), { dry: true }));
   }
 
   async function teacherWords() {

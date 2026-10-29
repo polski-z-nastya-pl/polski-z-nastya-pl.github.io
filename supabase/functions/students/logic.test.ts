@@ -14,6 +14,7 @@ const mk = (over: Partial<Deps> = {}): Deps & { log: string[] } => {
     userByToken: async (t) => (t === "44444444-4444-4444-8444-444444444444" ? S : null),
     tokenHashFor: async () => "hash",
     setPassword: async (u, p) => { log.push("pw:" + u + ":" + p.length); },
+    addStudent: async (e, n, p) => { log.push("add:" + e + ":" + n + ":" + p.length); return e === "dup@x.com" ? null : "55555555-5555-4555-8555-555555555555"; },
     ...over,
   };
 };
@@ -60,4 +61,17 @@ test("set_password: только учитель, не для учителя, п�
   assert.equal(r.status, 200);
   assert.match(r.body.password as string, /^[a-km-np-z2-9]{8}$/);
   assert.deepEqual(d.log, ["pw:" + S + ":8"]);
+});
+
+test("add_student: только учитель, проверка email, дубликаты, пароль 10 символов", async () => {
+  const d = mk();
+  assert.equal((await handle({ action: "add_student", email: "a@b.com" }, "student-jwt", d)).status, 403);
+  assert.equal((await handle({ action: "add_student", email: "не-почта" }, "teacher-jwt", d)).status, 400);
+  assert.deepEqual(d.log, []);
+  assert.equal((await handle({ action: "add_student", email: "dup@x.com" }, "teacher-jwt", d)).status, 409);
+  const ok = await handle({ action: "add_student", email: "  Yuliya@Mail.com ", name: " Юлия " }, "teacher-jwt", d);
+  assert.equal(ok.status, 200);
+  assert.equal(ok.body.email, "yuliya@mail.com");
+  assert.equal(ok.body.name, "Юлия");
+  assert.match(ok.body.password as string, /^[a-km-np-z2-9]{10}$/);
 });

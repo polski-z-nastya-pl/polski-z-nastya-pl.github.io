@@ -35,8 +35,8 @@
       "title": "Liczba mnoga — mężczyźni i wyjątki",
       "instruction_ru": "Выбери правильную форму множественного числа.",
       "questions": [
-        { "id": "q9", "type": "choice", "prompt": "W naszej firmie jest dużo miłych ___. (pracownik)", "options": ["pracowniki", "pracownicy", "pracownice"], "answer": "pracownicy",
-          "explanation_ru": "Мужское лицо: окончание -k даёт -cy: pracownik → pracownicy." },
+        { "id": "q9", "type": "choice", "prompt": "W naszej firmie ___ są bardzo mili. (pracownik)", "options": ["pracowniki", "pracownicy", "pracownice"], "answer": "pracownicy",
+          "explanation_ru": "Подлежащее во множественном числе, мужское лицо: -k даёт -cy: pracownik → pracownicy." },
         { "id": "q10", "type": "choice", "prompt": "Moi ___ są bardzo sympatyczni. (kolega)", "options": ["kolegi", "koledzy", "kolegowie"], "answer": "koledzy",
           "explanation_ru": "Мужское лицо: -g даёт -dzy: kolega → koledzy." },
         { "id": "q11", "type": "choice", "prompt": "Wszyscy ___ lubią pierogi. (Polak)", "options": ["Polaki", "Polacy", "Polakowie"], "answer": "Polacy",

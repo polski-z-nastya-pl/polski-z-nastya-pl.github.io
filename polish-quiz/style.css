@@ -75,3 +75,4 @@ input[type=text].ok{border-color:var(--ok)}input[type=text].bad{border-color:var
 .btn{min-height:52px}
 main:has(.nav){padding-bottom:96px}
 .top{flex-wrap:wrap}
+a.btn{display:inline-flex;align-items:center;justify-content:center;padding:12px 14px;border-radius:14px;min-height:52px}

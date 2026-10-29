@@ -47,6 +47,15 @@ const deps = {
     const { error } = await admin.auth.admin.updateUserById(userId, { password });
     if (error) throw new Error(error.message);
   },
+  async addStudent(email: string, name: string, password: string) {
+    await admin.from("allowed_emails").upsert({ email, name });
+    const r = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { display_name: name } });
+    if (r.error) {
+      if (/already|registered|exists/i.test(r.error.message)) return null;
+      throw new Error(r.error.message);
+    }
+    return r.data.user.id;
+  },
   async tokenHashFor(userId: string) {
     const email = must(await admin.auth.admin.getUserById(userId)).user.email!;
     const r = await admin.auth.admin.generateLink({ type: "magiclink", email });
