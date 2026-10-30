@@ -1,0 +1,41 @@
+{
+  "topic": "Przymiotnik",
+  "student": "Julia",
+  "created": "2026-10-30",
+  "description": "Согласование прилагательных с существительным (род, число, падеж) и степени сравнения.",
+  "tasks": [
+    {
+      "title": "Rodzaj i liczba",
+      "instruction_ru": "Выбери или впиши правильную форму прилагательного в именительном падеже.",
+      "questions": [
+        {"id": "q1", "type": "choice", "prompt": "To jest ___ dziecko.", "options": ["dobry", "dobra", "dobre"], "answer": "dobre", "explanation_ru": "Dziecko — средний род, у прилагательного окончание -e: dobre dziecko."},
+        {"id": "q2", "type": "choice", "prompt": "Ci studenci są bardzo ___.", "options": ["zmęczone", "zmęczeni", "zmęczony"], "answer": "zmęczeni", "explanation_ru": "Ci studenci — мужсколичная группа, у прилагательного форма на -i: zmęczony → zmęczeni."},
+        {"id": "q3", "type": "input", "prompt": "Te kobiety są ___. (zadowolony)", "answer": ["zadowolone"], "explanation_ru": "Te kobiety — немужсколичная группа, окончание -e: zadowolone."},
+        {"id": "q4", "type": "input", "prompt": "Ci lekarze są bardzo ___. (miły)", "answer": ["mili"], "explanation_ru": "Мужсколичная группа: miły → mili (чередование y → i)."},
+        {"id": "q5", "type": "multi", "prompt": "Какие формы подходят к группе мужчин (ci …)?", "options": ["dobrzy", "polscy", "mali", "duże", "młode"], "answer": ["dobrzy", "polscy", "mali"], "explanation_ru": "Для мужсколичной группы: dobry → dobrzy, polski → polscy, mały → mali. Формы duże и młode — для немужсколичной (te …)."}
+      ]
+    },
+    {
+      "title": "Przymiotnik i przypadek",
+      "instruction_ru": "Прилагательное меняется вместе с существительным: поставь правильную форму.",
+      "questions": [
+        {"id": "q6", "type": "choice", "prompt": "Nie ma ___ samochodu.", "options": ["nowy", "nowego", "nowemu"], "answer": "nowego", "explanation_ru": "После nie ma нужен родительный падеж: nowego samochodu."},
+        {"id": "q7", "type": "choice", "prompt": "Pomagam ___ człowiekowi.", "options": ["młody", "młodego", "młodemu"], "answer": "młodemu", "explanation_ru": "Pomagać требует дательного падежа: młodemu człowiekowi."},
+        {"id": "q8", "type": "input", "prompt": "Rozmawiam z ___ sąsiadką. (miły)", "answer": ["miłą"], "explanation_ru": "После z (с кем?) — творительный падеж женского рода: miłą sąsiadką."},
+        {"id": "q9", "type": "input", "prompt": "Myślę o ___ egzaminie. (ważny)", "answer": ["ważnym"], "explanation_ru": "После o (о чём?) — предложный падеж: o ważnym egzaminie."},
+        {"id": "q10", "type": "choice", "prompt": "Idę do kina z moją ___ koleżanką.", "options": ["dobra", "dobrą", "dobrej"], "answer": "dobrą", "explanation_ru": "z + творительный падеж женского рода: z moją dobrą koleżanką."}
+      ]
+    },
+    {
+      "title": "Stopniowanie",
+      "instruction_ru": "Степени сравнения: поставь правильную форму.",
+      "questions": [
+        {"id": "q11", "type": "input", "prompt": "dobry → ___ → najlepszy", "answer": ["lepszy"], "explanation_ru": "Неправильная степень сравнения: dobry → lepszy → najlepszy."},
+        {"id": "q12", "type": "input", "prompt": "Warszawa jest ___ niż Lublin. (duży)", "answer": ["większa"], "explanation_ru": "duży → większy; Warszawa — женский род, поэтому większa."},
+        {"id": "q13", "type": "choice", "prompt": "Ten film jest ___ od poprzedniego.", "options": ["ciekawy", "ciekawszy", "najciekawszy"], "answer": "ciekawszy", "explanation_ru": "Сравнение с od: ciekawy → ciekawszy; od + родительный падеж (od poprzedniego)."},
+        {"id": "q14", "type": "choice", "prompt": "Ten tekst jest ___ interesujący niż tamten.", "options": ["więcej", "bardziej", "najbardziej", "lepiej"], "answer": "bardziej", "explanation_ru": "У длинных прилагательных на -ący сравнительная степень строится с bardziej: bardziej interesujący."},
+        {"id": "q15", "type": "multi", "prompt": "Выбери правильные формы сравнительной степени.", "options": ["zły → gorszy", "mały → mniejszy", "dobry → dobrzejszy", "duży → większy", "zły → złejszy"], "answer": ["zły → gorszy", "mały → mniejszy", "duży → większy"], "explanation_ru": "Неправильные: zły → gorszy, mały → mniejszy, duży → większy. Формы dobrzejszy и złejszy не существуют."}
+      ]
+    }
+  ]
+}
