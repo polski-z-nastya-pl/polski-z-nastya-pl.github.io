@@ -462,12 +462,73 @@
     return { words: newWords.length, questions: rows.length };
   }
 
+  // ---------- обновление теста: запрос → подготовка помощником → проверка → «Применить» ----------
+  const MODE_TXT = { append: "дописать к тесту", replace: "заменить все вопросы" };
+  function updateCard(u) {
+    const t = u.tests?.title || "тест";
+    if (u.status === "requested") return `<p class="hint" style="margin:0 0 12px">⏳ Запрос на обновление теста «${esc(t)}» (${MODE_TXT[u.mode]}) принят. Помощник подготовит вопросы при ближайшей проверке (каждый день в 17:00), и они появятся здесь на проверку.</p>`;
+    const qs = u.questions || [];
+    return `<div class="q" data-u="${u.id}" style="margin-bottom:16px"><b>🔄 Обновление теста «${esc(t)}»: ${qs.length} ${plural(qs.length, "вопрос", "вопроса", "вопросов")} — ${MODE_TXT[u.mode]}</b>
+      ${u.note ? `<p class="hint" style="margin:4px 0">${esc(u.note)}</p>` : ""}
+      <p class="hint" style="margin:4px 0 8px">Проверьте вопросы ниже. Пока вы не нажмёте «Применить», тест не меняется.${u.mode === "replace" ? " Старые вопросы будут удалены, результаты учеников сохранятся." : ""}</p>
+      <details class="acc"><summary class="li"><span class="li-main"><b>Проверить вопросы</b><small>${qs.length} шт. с правильными ответами</small></span><span class="li-side chev">›</span></summary>
+        <ul class="review">${qs.map((q, i) => `<li><b>${i + 1}. ${esc(q.prompt)}</b>${q.options?.length ? `<br><small>${q.options.map(esc).join(" · ")}</small>` : ""}<br>Верно: <span class="a">${esc((q.answers?.length ? q.answers : [q.answer]).join("; "))}</span>${q.explain ? `<br><small>${esc(q.explain)}</small>` : ""}</li>`).join("")}</ul></details>
+      <div class="err" data-uerr></div>
+      <div class="row"><button class="btn" data-uapply>Применить</button><button class="btn alt" data-udrop>Отклонить</button></div></div>`;
+  }
+  function bindUpdAsk(box) {
+    const ask = box.querySelector("[data-uask]"), keep = box.querySelector("[data-ukeep]");
+    const done = async (extra) => { await sb.from("agent_log").update({ seen: true }).eq("id", box.dataset.ul); teacherTests(); };
+    keep.onclick = () => done();
+    ask.onclick = () => {
+      box.innerHTML = `<small>Как обновить?</small> <button class="btn sm" data-m="append">Дописать новые вопросы</button> <button class="btn sm alt" data-m="replace">Заменить все вопросы</button> <button class="link" data-mx>Отмена</button>`;
+      box.querySelector("[data-mx]").onclick = teacherTests;
+      box.querySelectorAll("[data-m]").forEach((b) => b.onclick = async () => {
+        const { error } = await sb.from("test_updates").insert({ test_id: box.dataset.ut, mode: b.dataset.m, status: "requested" });
+        if (error) { alert("Не удалось: " + error.message); return; }
+        await done();
+      });
+    };
+  }
+  function bindUpdate(u) {
+    const box = $app.querySelector(`[data-u="${u.id}"]`); if (!box) return;
+    const err = box.querySelector("[data-uerr]");
+    box.querySelector("[data-udrop]").onclick = async () => {
+      if (!confirm("Отклонить обновление? Тест останется как есть.")) return;
+      const { error } = await sb.from("test_updates").update({ status: "dismissed", decided_at: new Date().toISOString() }).eq("id", u.id);
+      if (error) { err.textContent = error.message; return; }
+      teacherTests();
+    };
+    box.querySelector("[data-uapply]").onclick = async () => {
+      box.querySelector("[data-uapply]").disabled = true; err.style.color = "var(--muted)"; err.textContent = "Применяем…";
+      try { const n = await applyUpdate(u); alert(`Готово: тест обновлён, добавлено вопросов — ${n}.`); teacherTests(); }
+      catch (e) { err.style.color = "var(--bad)"; err.textContent = "Не удалось: " + e.message; box.querySelector("[data-uapply]").disabled = false; }
+    };
+  }
+  // Сначала добавляем новые вопросы и только потом убираем старые, чтобы тест не остался пустым при сбое
+  async function applyUpdate(u) {
+    const qs = u.questions || [];
+    if (!qs.length) throw new Error("в обновлении нет вопросов");
+    const old = await must(sb.from("questions").select("id,position,prompt").eq("test_id", u.test_id).order("position"));
+    let pos = old.reduce((m, q) => Math.max(m, q.position), 0);
+    const have = new Set(old.map((q) => q.prompt));
+    const rows = qs.filter((q) => u.mode === "replace" || !have.has(q.prompt)).map((q) => ({ test_id: u.test_id, position: ++pos, type: q.type, prompt: q.prompt, options: q.options || [],
+      answer: q.answer, answers: q.answers || [], explain: q.explain || "", task_title: q.task_title || "", task_instruction: q.task_instruction || "" }));
+    if (!rows.length) throw new Error("все вопросы уже есть в тесте");
+    await must(sb.from("questions").insert(rows).select("id"));
+    if (u.mode === "replace" && old.length) await must(sb.from("questions").delete().in("id", old.map((q) => q.id)).select("id"));
+    await must(sb.from("test_updates").update({ status: "applied", decided_at: new Date().toISOString() }).eq("id", u.id).select("id"));
+    return rows.length;
+  }
+
   async function teacherTests() {
-    const [tests, logs, states, batches] = await Promise.all([
+    const [tests, logs, states, batches, updates] = await Promise.all([
       must(sb.from("tests").select("*, questions(count)").order("created_at", { ascending: false })),
       must(sb.from("agent_log").select("*").eq("seen", false).order("created_at", { ascending: false }).limit(8)),
       must(sb.from("agent_state").select("checked_at").order("checked_at", { ascending: false }).limit(1)),
-      must(sb.from("word_batches").select("*, profiles(display_name)").eq("status", "pending").order("week", { ascending: false }))]);
+      must(sb.from("word_batches").select("*, profiles(display_name)").eq("status", "pending").order("week", { ascending: false })),
+      must(sb.from("test_updates").select("*, tests(title)").in("status", ["requested", "ready"]).order("created_at"))]);
+    const busy = new Set(updates.map((u) => u.test_id));
     const last = states[0] && new Date(states[0].checked_at), stale = !last || Date.now() - last > 2 * 864e5;
     const agentLine = `<p class="hint">🤖 Помощник проверял материалы: ${last ? last.toLocaleDateString("ru-RU", { day: "numeric", month: "long" }) : "ещё не проверял"}${stale ? ` <b style="color:var(--bad)">· давно не проверял, сообщите владельцу</b>` : ""}</p>`;
     const icon = { draft: "📝", published: "✅", question: "❓", error: "⚠️", info: "ℹ️" };
@@ -475,8 +536,9 @@
       <h1>Тесты</h1>
       ${agentLine}
       ${batches.map(batchCard).join("")}
+      ${updates.map(updateCard).join("")}
       ${logs.length ? `<div class="q" style="margin-bottom:16px"><b>🤖 Помощник сообщает</b>
-        ${logs.map((l) => `<p style="margin:10px 0 0;font-size:15px">${icon[l.kind] || ""} ${esc(l.message)}${l.test_id ? ` <button class="link" data-e="${l.test_id}">Открыть</button>` : ""}${l.kind === "published" && l.test_id ? ` <button class="link" data-unpub="${l.test_id}">Снять с публикации</button>` : ""}</p>`).join("")}
+        ${logs.map((l) => `<p style="margin:10px 0 0;font-size:15px">${icon[l.kind] || ""} ${esc(l.message)}${l.test_id ? ` <button class="link" data-e="${l.test_id}">Открыть</button>` : ""}${l.kind === "published" && l.test_id ? ` <button class="link" data-unpub="${l.test_id}">Снять с публикации</button>` : ""}${l.kind === "question" && l.test_id && !busy.has(l.test_id) ? ` <span class="upd" data-ul="${l.id}" data-ut="${l.test_id}"><button class="btn sm" data-uask>Обновить тест</button> <button class="btn sm alt" data-ukeep>Оставить как есть</button></span>` : ""}</p>`).join("")}
         <div class="row"><button class="btn sm alt" id="seen">Понятно, скрыть</button></div></div>` : ""}
       <div class="row" style="margin:0 0 16px"><button class="btn" id="new">＋ Новый тест</button><button class="btn alt" id="imp">Из файла</button></div>
       ${tests.length ? `<div class="list">${tests.map((t) => {
@@ -487,6 +549,8 @@
       <p class="hint" style="margin-top:12px">Черновики видите только вы. Чтобы тест увидел ученик: откройте тест, включите «Опубликован» и отметьте ученика.</p>`;
     bindTabs();
     batches.forEach(bindBatch);
+    updates.forEach(bindUpdate);
+    $app.querySelectorAll(".upd").forEach(bindUpdAsk);
     on("imp", importView);
     $app.querySelectorAll("[data-unpub]").forEach((b) => b.onclick = async () => {
       if (!confirm("Снять тест с публикации? Ученики перестанут его видеть.")) return;
