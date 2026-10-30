@@ -9,10 +9,10 @@
       "instruction_ru": "Выбери или впиши правильную форму прилагательного в именительном падеже.",
       "questions": [
         {"id": "q1", "type": "choice", "prompt": "To jest ___ dziecko.", "options": ["dobry", "dobra", "dobre"], "answer": "dobre", "explanation_ru": "Dziecko — средний род, у прилагательного окончание -e: dobre dziecko."},
-        {"id": "q2", "type": "choice", "prompt": "Ci studenci są bardzo ___.", "options": ["zmęczone", "zmęczeni", "zmęczony"], "answer": "zmęczeni", "explanation_ru": "Ci studenci — мужсколичная группа, у прилагательного форма на -i: zmęczony → zmęczeni."},
-        {"id": "q3", "type": "input", "prompt": "Te kobiety są ___. (zadowolony)", "answer": ["zadowolone"], "explanation_ru": "Te kobiety — немужсколичная группа, окончание -e: zadowolone."},
-        {"id": "q4", "type": "input", "prompt": "Ci lekarze są bardzo ___. (miły)", "answer": ["mili"], "explanation_ru": "Мужсколичная группа: miły → mili (чередование y → i)."},
-        {"id": "q5", "type": "multi", "prompt": "Какие формы подходят к группе мужчин (ci …)?", "options": ["dobrzy", "polscy", "mali", "duże", "młode"], "answer": ["dobrzy", "polscy", "mali"], "explanation_ru": "Для мужсколичной группы: dobry → dobrzy, polski → polscy, mały → mali. Формы duże и młode — для немужсколичной (te …)."}
+        {"id": "q2", "type": "choice", "prompt": "Ci studenci są bardzo ___.", "options": ["zmęczone", "zmęczeni", "zmęczony"], "answer": "zmęczeni", "explanation_ru": "Ci studenci — группа męskoosobowa (есть мужчины), у прилагательного форма на -i: zmęczony → zmęczeni."},
+        {"id": "q3", "type": "input", "prompt": "Te kobiety są ___. (zadowolony)", "answer": ["zadowolone"], "explanation_ru": "Te kobiety — группа niemęskoosobowa (женщины, без мужчин), окончание -e: zadowolone."},
+        {"id": "q4", "type": "input", "prompt": "Ci lekarze są bardzo ___. (miły)", "answer": ["mili"], "explanation_ru": "Группа męskoosobowa (ci lekarze): miły → mili (чередование y → i)."},
+        {"id": "q5", "type": "multi", "prompt": "Какие формы подходят к группе мужчин (ci …)?", "options": ["dobrzy", "polscy", "mali", "duże", "młode"], "answer": ["dobrzy", "polscy", "mali"], "explanation_ru": "Для группы męskoosobowej (ci …): dobry → dobrzy, polski → polscy, mały → mali. Формы duże и młode — для группы niemęskoosobowej (te …)."}
       ]
     },
     {
