@@ -103,6 +103,51 @@
     });
   }
 
+  // уменьшаем фото до 160×160 (по центру) и храним прямо в профиле
+  function resizeImage(file, size = 160) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => {
+        const c = document.createElement("canvas"); c.width = c.height = size;
+        const k = Math.min(img.width, img.height), sx = (img.width - k) / 2, sy = (img.height - k) / 2;
+        c.getContext("2d").drawImage(img, sx, sy, k, k, 0, 0, size, size);
+        URL.revokeObjectURL(url); resolve(c.toDataURL("image/jpeg", 0.82));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Не удалось прочитать картинку")); };
+      img.src = url;
+    });
+  }
+  function showProfile() {
+    let avatar = me.profile.avatar || null;
+    const draw = () => { $("pv").outerHTML = avatarHtml({ avatar, display_name: $("pn").value || me.profile.display_name }, "avatar big").replace("<span", '<span id="pv"'); };
+    $app.innerHTML = `<div class="top"><button class="link" id="back">← Назад</button><span>Мой профиль</span></div>
+      <div class="q" style="text-align:center">
+        <span id="pv"></span>
+        <div class="row" style="justify-content:center"><label class="btn alt sm" style="cursor:pointer">Выбрать фото<input type="file" id="pf" accept="image/*" hidden></label><button class="btn alt sm" id="pd">Убрать фото</button></div>
+        <label class="field" style="text-align:left;margin-top:14px">Имя<input type="text" id="pn" maxlength="60" value="${esc(me.profile.display_name)}"></label>
+        <p class="hint" style="text-align:left;margin:0 0 6px">Вход: ${esc(me.profile.email || "по личной ссылке")} · ${isTeacher() ? "учитель" : "ученик"}</p>
+        <div class="err" id="per"></div>
+        <button class="btn" id="ps" style="width:100%">Сохранить</button></div>`;
+    draw();
+    on("back", home);
+    $("pn").oninput = () => { if (!avatar) draw(); };
+    $("pf").onchange = async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      try { avatar = await resizeImage(f); draw(); $("per").textContent = ""; } catch (err) { $("per").style.color = "var(--bad)"; $("per").textContent = err.message; }
+    };
+    on("pd", () => { avatar = null; draw(); });
+    on("ps", async () => {
+      const name = $("pn").value.trim().slice(0, 60), er = $("per");
+      er.style.color = "var(--bad)";
+      if (!name) { er.textContent = "Введите имя."; return; }
+      $("ps").disabled = true; er.style.color = "var(--muted)"; er.textContent = "Сохраняем…";
+      const { error } = await sb.from("profiles").update({ display_name: name, avatar }).eq("id", me.user.id);
+      if (error) { er.style.color = "var(--bad)"; er.textContent = "Не удалось сохранить: " + error.message; $("ps").disabled = false; return; }
+      me.profile.display_name = name; me.profile.avatar = avatar;
+      er.style.color = "var(--ok)"; er.textContent = "Сохранено ✓"; setTimeout(home, 600);
+    });
+  }
+
   function showChangePassword(opts = {}) {
     $app.innerHTML = `${opts.recovery ? "" : `<div class="top"><button class="link" id="back">← Назад</button></div>`}
       <h1>${opts.welcome ? "Добро пожаловать!" : opts.recovery ? "Новый пароль" : "Сменить пароль"}</h1>
@@ -133,14 +178,17 @@
   }
 
   const initials = (n) => String(n || "?").trim().split(/\s+/).map((w) => (w.match(/\p{L}/u) || [""])[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?";
+  const avatarHtml = (p, cls = "avatar") => p?.avatar && /^data:image\//.test(p.avatar)
+    ? `<span class="${cls}" style="padding:0;overflow:hidden"><img src="${esc(p.avatar)}" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></span>`
+    : `<span class="${cls}">${esc(initials(p?.display_name))}</span>`;
   const curTheme = () => document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
   function header(menu = "") {
     const n = me.profile.display_name;
-    return `<div class="appbar"><div class="who"><span class="avatar">${esc(initials(n))}</span><span><b>${esc(n)}</b><small>${isTeacher() ? "учитель" : "ученик"}</small></span></div>
-      <details class="menu"><summary aria-label="Меню">⋯</summary><div class="menu-pop">${menu}<button id="theme">${curTheme() === "dark" ? "☀️ Светлая тема" : "🌙 Тёмная тема"}</button><button id="chpw">🔑 Сменить пароль</button><button id="out">Выйти</button></div></details></div>`;
+    return `<div class="appbar"><div class="who">${avatarHtml(me.profile)}<span><b>${esc(n)}</b><small>${isTeacher() ? "учитель" : "ученик"}</small></span></div>
+      <details class="menu"><summary aria-label="Меню">⋯</summary><div class="menu-pop">${menu}<button id="prof">👤 Мой профиль</button><button id="theme">${curTheme() === "dark" ? "☀️ Светлая тема" : "🌙 Тёмная тема"}</button><button id="chpw">🔑 Сменить пароль</button><button id="out">Выйти</button></div></details></div>`;
   }
-  const bindHeader = () => { on("theme", () => { const t = curTheme() === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = t; try { localStorage.setItem("theme", t); } catch (e) {} const d = document.querySelector(".menu"); if (d) d.open = false; document.getElementById("theme") && (document.getElementById("theme").textContent = t === "dark" ? "☀️ Светлая тема" : "🌙 Тёмная тема"); }); on("out", () => sb.auth.signOut()); on("chpw", () => showChangePassword()); };
+  const bindHeader = () => { on("theme", () => { const t = curTheme() === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = t; try { localStorage.setItem("theme", t); } catch (e) {} const d = document.querySelector(".menu"); if (d) d.open = false; document.getElementById("theme") && (document.getElementById("theme").textContent = t === "dark" ? "☀️ Светлая тема" : "🌙 Тёмная тема"); }); on("out", () => sb.auth.signOut()); on("chpw", () => showChangePassword()); on("prof", showProfile); };
   // меню закрывается по клику вне него
   document.addEventListener("click", (e) => document.querySelectorAll("details.menu[open]").forEach((d) => { if (!d.contains(e.target)) d.open = false; }));
 
@@ -773,7 +821,7 @@
 
       <h3 class="sec">Ученики (${students.length})</h3>
       ${students.length ? `<div class="list">${students.map((p) => `<details class="acc"><summary class="li">
-          <span class="who"><span class="avatar">${esc(initials(p.display_name))}</span><span class="li-main"><b>${esc(p.display_name)}</b><small>${sub(p)}</small></span></span>
+          <span class="who">${avatarHtml(p)}<span class="li-main"><b>${esc(p.display_name)}</b><small>${sub(p)}</small></span></span>
           <span class="li-side"><span class="chip off">${countFor(p)} из ${tests.length}</span><span class="chev">›</span></span></summary>
         <div class="acc-body">
           <p class="hint" style="margin:10px 0 2px">Доступные тесты</p>
@@ -788,7 +836,7 @@
           </div></div></details>`).join("")}</div>` : `<div class="list"><div class="empty">Учеников пока нет. Добавьте первого выше.</div></div>`}
 
       <h3 class="sec">Учителя (${teachers.length})</h3>
-      <div class="list">${teachers.map((p) => `<div class="li" style="cursor:default;flex-wrap:wrap"><span class="who"><span class="avatar">${esc(initials(p.display_name))}</span><span class="li-main"><b>${esc(p.display_name)}</b><small>${sub(p)}</small></span></span>
+      <div class="list">${teachers.map((p) => `<div class="li" style="cursor:default;flex-wrap:wrap"><span class="who">${avatarHtml(p)}<span class="li-main"><b>${esc(p.display_name)}</b><small>${sub(p)}</small></span></span>
         <span class="li-side" style="flex-wrap:wrap;justify-content:flex-end">${p.id === me.user.id ? `<span class="chip off">это вы</span>` : `<button class="btn sm alt" data-pw="${p.id}">🔑 Новый пароль</button><button class="btn sm alt" data-role="${p.id}" data-to="student">Сделать учеником</button>`}</span></div>`).join("")}</div>
       ${pending.length ? `<h3 class="sec">Добавлены, но ещё не вошли</h3><div class="list">${pending.map((a) => `<div class="li" style="cursor:default"><span class="li-main"><b>${esc(a.email)}</b></span><span class="li-side"><button class="link" data-del="${esc(a.email)}">убрать</button></span></div>`).join("")}</div>` : ""}`;
     bindTabs();

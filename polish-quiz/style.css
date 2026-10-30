@@ -166,3 +166,4 @@ input:focus,textarea:focus,select:focus{box-shadow:0 0 0 4px var(--accent-soft)}
 .gc.gm{background:#2f6fd6}.gc.gz{background:#c0352c}.gc.gn{background:#1f7a4d}
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]) .gc.gm{background:#6c9bff;color:#10213f}:root:not([data-theme=light]) .gc.gz{background:#ff8a80;color:#3a0f0c}:root:not([data-theme=light]) .gc.gn{background:#6fd3a0;color:#0e2a1b}}
 :root[data-theme=dark] .gc.gm{background:#6c9bff;color:#10213f}:root[data-theme=dark] .gc.gz{background:#ff8a80;color:#3a0f0c}:root[data-theme=dark] .gc.gn{background:#6fd3a0;color:#0e2a1b}
+.avatar.big{width:96px;height:96px;font-size:34px;margin:6px auto 12px}
