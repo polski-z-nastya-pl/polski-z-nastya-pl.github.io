@@ -8,6 +8,15 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const strip = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ł/g, "l").replace(/Ł/g, "L");
+  // род существительного: указатель и метка
+  const ART = { m: "ten", "ż": "ta", n: "to" };
+  const GCLASS = { m: "gm", "ż": "gz", n: "gn" };
+  const withArt = (w) => (w.gender ? ART[w.gender] + " " + w.pl : w.pl);
+  const gchip = (g) => (g ? `<span class="gc ${GCLASS[g]}">${g}</span>` : "");
+  const bareWord = (s) => s.trim().toLowerCase().replace(/\s+/g, " ").replace(/^(ten|ta|to) /, "");
+  const gOfArt = (a) => ({ ten: "m", ta: "ż", to: "n" })[String(a).split(" ")[0]];
+  // "ta przychodnia" -> {gender:"ż", pl:"przychodnia"}
+  const parsePl = (raw) => { const m = raw.trim().match(/^(ten|ta|to)\s+(.+)$/i); return m ? { gender: gOfArt(m[1].toLowerCase()), pl: m[2].trim() } : { gender: null, pl: raw.trim() }; };
   const norm = (s) => s.trim().toLowerCase().replace(/\s+/g, " ").replace(/[.!?]+$/, "");
   const today = () => new Date().toISOString().slice(0, 10);
   const addDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
@@ -221,6 +230,7 @@
       const g = norm(given);
       if (q.answers.some((a) => norm(a) === g)) r.correct = true;
       else if (q.answers.some((a) => norm(strip(a)) === norm(strip(given)))) r.status = "almost"; // только диакритика
+      else if (q.answers.some((a) => /^(ten|ta|to) /i.test(a) && bareWord(a) === bareWord(given))) r.status = "gender"; // слово верно, род нет
     }
     if (r.correct) r.status = "ok";
     return r;
@@ -229,6 +239,7 @@
   function feedback(q, r) {
     const why = q.explain ? h("span", { class: "why" }, q.explain) : null;
     if (r.correct) return h("div", { class: "fb ok" }, "✅ Верно! ", why);
+    if (r.status === "gender") return h("div", { class: "fb bad" }, "❌ Слово верно, но род: ", h("b", {}, q.answers[0] + " (" + gOfArt(q.answers[0]) + ")"), why);
     if (r.status === "almost") return h("div", { class: "fb almost" }, "🟡 Почти! Проверь польские буквы: правильно — ", h("b", {}, shown(q)), why);
     return h("div", { class: "fb bad" }, "❌ Правильно: ", h("b", {}, shown(q)), why);
   }
@@ -249,7 +260,7 @@
           return b;
         }));
         box.append(keys, inp, fb);
-        w = { read: () => inp.value.trim() && inp.value, lock: (r) => { inp.disabled = true; inp.classList.add(r.status); } };
+        w = { read: () => inp.value.trim() && inp.value, lock: (r) => { inp.disabled = true; inp.classList.add(r.status === "gender" ? "bad" : r.status); } };
       } else {
         const multi = q.type === "multi";
         const labels = q.options.map((o) => {
@@ -344,14 +355,14 @@
           <div class="top"><button class="link" id="back">← Выйти</button><span>Карточки · ${i + 1}/${queue.length}</span></div>
           <div class="bar"><i style="width:${i / queue.length * 100}%"></i></div>
           <div class="q flash">
-            <div class="w">${esc(w.pl)} <button class="say" id="say" aria-label="Прослушать">🔊</button></div>
+            <div class="w">${gchip(w.gender)}${esc(withArt(w))} <button class="say" id="say" aria-label="Прослушать">🔊</button></div>
             ${flipped ? `<div class="tr">${esc(w.ru)}</div>${w.example ? `<div class="ex">${esc(w.example)}</div>` : ""}` : ""}
           </div>
           <div class="row">${flipped
             ? `<button class="btn alt" id="no">Не знал</button><button class="btn" id="yes">Знал</button>`
             : `<button class="btn" id="flip">Показать перевод</button>`}</div>
           <p class="err" id="warn" style="text-align:center">${failed ? "⚠️ Ответ не сохранился: " + esc(lastErr) : ""}</p>`;
-        on("back", home); on("say", () => speak(w.pl));
+        on("back", home); on("say", () => speak(withArt(w)));
         on("flip", () => show(true));
         on("yes", () => rate(true)); on("no", () => rate(false));
       };
@@ -395,17 +406,75 @@
     } catch (e) { fail(e); }
   }
 
+  // ---------- слова недели: карточка одобрения ----------
+  const WORDS_TEST = "Повседневные слова и фразы";
+  const batchCard = (b) => `<div class="q wb" data-b="${b.id}" style="margin-bottom:16px">
+    <b>🤖 Słówka na tydzień (${esc(b.profiles?.display_name || "—")}): ${b.items.length} słów — добавить?</b>
+    <p class="hint" style="margin:4px 0 8px">Тема: ${esc(b.topic || "—")} · неделя с ${new Date(b.week).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}. Снимите галочку с лишних слов. Пока вы не нажмёте «Добавить», ничего не меняется.</p>
+    <div class="checks">${b.items.map((it, i) => `<label><input type="checkbox" data-i="${i}" checked>
+      <span>${gchip(it.gender)}<b>${esc(withArt(it))}</b> — ${esc(it.ru)}${it.pos ? ` <small>(${esc(it.pos)})</small>` : ""}</span></label>`).join("")}</div>
+    <div class="err" data-berr></div>
+    <div class="row"><button class="btn" data-badd>Добавить</button><button class="btn alt" data-brej>Отклонить</button></div></div>`;
+  function bindBatch(b) {
+    const box = $app.querySelector(`[data-b="${b.id}"]`); if (!box) return;
+    const err = box.querySelector("[data-berr]");
+    box.querySelector("[data-brej]").onclick = async () => {
+      if (!confirm("Отклонить список недели? Слова не будут добавлены.")) return;
+      const { error } = await sb.from("word_batches").update({ status: "rejected", decided_at: new Date().toISOString() }).eq("id", b.id);
+      if (error) { err.textContent = error.message; return; }
+      teacherTests();
+    };
+    box.querySelector("[data-badd]").onclick = async () => {
+      const keep = [...box.querySelectorAll("[data-i]")].filter((c) => c.checked).map((c) => +c.dataset.i);
+      if (!keep.length) { err.textContent = "Отметьте хотя бы одно слово или нажмите «Отклонить»."; return; }
+      box.querySelector("[data-badd]").disabled = true; err.style.color = "var(--muted)"; err.textContent = "Добавляем…";
+      try { const r = await approveBatch(b, keep); alert(`Готово: слов добавлено — ${r.words}, вопросов в тест — ${r.questions}.`); teacherTests(); }
+      catch (e) { err.style.color = "var(--bad)"; err.textContent = "Не удалось: " + e.message; box.querySelector("[data-badd]").disabled = false; }
+    };
+  }
+  const wordPrompt = (it) => it.gender ? `Напишите по-польски: ${it.demo ? it.demo + " " : ""}${it.ru}` : `Напишите по-польски: «${it.ru}»`;
+  const wordAnswers = (it) => it.gender ? [withArt(it)] : [it.pl, ...(it.alts || [])];
+  // Добавляет выбранные слова в «Слова» и вопросы в существующий тест; повторных слов не дублирует
+  async function approveBatch(b, keep) {
+    const items = keep.map((i) => b.items[i]);
+    const tests = await must(sb.from("tests").select("id").eq("title", WORDS_TEST));
+    if (tests.length !== 1) throw new Error(`тест «${WORDS_TEST}» не найден или их несколько`);
+    const tid = tests[0].id;
+    const [words, qs] = await Promise.all([must(sb.from("words").select("pl,gender")), must(sb.from("questions").select("*").eq("test_id", tid).order("position"))]);
+    const key = (g, pl) => (g || "") + "|" + pl.trim().toLowerCase();
+    const have = new Set(words.map((w) => key(w.gender, w.pl)));
+    const wk = new Date(b.week).toLocaleDateString("ru-RU", { day: "numeric", month: "numeric" });
+    const used = new Set(qs.map((q) => q.prompt));
+    const fresh = items.filter((it) => !used.has(wordPrompt(it)));
+    let pos = qs.reduce((m, q) => Math.max(m, q.position), 0);
+    const rows = [], parts = Math.ceil(fresh.length / 5);
+    fresh.forEach((it, i) => { const a = wordAnswers(it); rows.push({ test_id: tid, position: ++pos, type: "input", prompt: wordPrompt(it), options: [], answer: a[0], answers: a, explain: "",
+      task_title: `Слова недели ${wk} · часть ${Math.floor(i / 5) + 1} из ${parts}`, task_instruction: "Напишите слово по-польски. У существительных добавляйте ten / ta / to." }); });
+    const reviewTitle = `Повторение · ${wk}`;
+    if (!qs.some((q) => q.task_title === reviewTitle)) {
+      const pool = shuffle(qs.filter((q) => !q.task_title.startsWith("Повторение")).slice()).slice(0, 5);
+      pool.forEach((q) => rows.push({ test_id: tid, position: ++pos, type: q.type, prompt: q.prompt, options: q.options, answer: q.answer, answers: q.answers, explain: q.explain, task_title: reviewTitle, task_instruction: "Слова из прошлых недель: повторение." }));
+    }
+    if (rows.length) await must(sb.from("questions").insert(rows).select("id"));
+    const newWords = items.filter((it) => !have.has(key(it.gender, it.pl))).map((it) => ({ pl: it.pl, ru: it.ru, gender: it.gender || null, pos: it.pos || "", example: it.example || "", level: "B1", topic: b.topic || "" }));
+    if (newWords.length) await must(sb.from("words").insert(newWords).select("id"));
+    await must(sb.from("word_batches").update({ status: "approved", decided_at: new Date().toISOString() }).eq("id", b.id).select("id"));
+    return { words: newWords.length, questions: rows.length };
+  }
+
   async function teacherTests() {
-    const [tests, logs, states] = await Promise.all([
+    const [tests, logs, states, batches] = await Promise.all([
       must(sb.from("tests").select("*, questions(count)").order("created_at", { ascending: false })),
       must(sb.from("agent_log").select("*").eq("seen", false).order("created_at", { ascending: false }).limit(8)),
-      must(sb.from("agent_state").select("checked_at").order("checked_at", { ascending: false }).limit(1))]);
+      must(sb.from("agent_state").select("checked_at").order("checked_at", { ascending: false }).limit(1)),
+      must(sb.from("word_batches").select("*, profiles(display_name)").eq("status", "pending").order("week", { ascending: false }))]);
     const last = states[0] && new Date(states[0].checked_at), stale = !last || Date.now() - last > 2 * 864e5;
     const agentLine = `<p class="hint">🤖 Помощник проверял материалы: ${last ? last.toLocaleDateString("ru-RU", { day: "numeric", month: "long" }) : "ещё не проверял"}${stale ? ` <b style="color:var(--bad)">· давно не проверял, сообщите владельцу</b>` : ""}</p>`;
     const icon = { draft: "📝", published: "✅", question: "❓", error: "⚠️", info: "ℹ️" };
     $app.innerHTML = `${tabs("tests")}
       <h1>Тесты</h1>
       ${agentLine}
+      ${batches.map(batchCard).join("")}
       ${logs.length ? `<div class="q" style="margin-bottom:16px"><b>🤖 Помощник сообщает</b>
         ${logs.map((l) => `<p style="margin:10px 0 0;font-size:15px">${icon[l.kind] || ""} ${esc(l.message)}${l.test_id ? ` <button class="link" data-e="${l.test_id}">Открыть</button>` : ""}${l.kind === "published" && l.test_id ? ` <button class="link" data-unpub="${l.test_id}">Снять с публикации</button>` : ""}</p>`).join("")}
         <div class="row"><button class="btn sm alt" id="seen">Понятно, скрыть</button></div></div>` : ""}
@@ -417,6 +486,7 @@
       }).join("")}</div>` : `<div class="list"><div class="empty">Тестов пока нет. Создайте первый или загрузите из файла.</div></div>`}
       <p class="hint" style="margin-top:12px">Черновики видите только вы. Чтобы тест увидел ученик: откройте тест, включите «Опубликован» и отметьте ученика.</p>`;
     bindTabs();
+    batches.forEach(bindBatch);
     on("imp", importView);
     $app.querySelectorAll("[data-unpub]").forEach((b) => b.onclick = async () => {
       if (!confirm("Снять тест с публикации? Ученики перестанут его видеть.")) return;
@@ -645,6 +715,7 @@
           <p class="hint" style="margin:10px 0 2px">Доступные тесты</p>
           <div class="checks">${tests.map((t) => `<label><input type="checkbox" data-t="${t.id}" data-u="${p.id}" ${has.has(t.id + ":" + p.id) ? "checked" : ""}>
             <span><span class="badge">${t.level}</span>${esc(t.title)}${t.for_all ? " <small>(всем)</small>" : ""}${t.published ? "" : ` <small>(черновик)</small>`}</span></label>`).join("") || "<small>Тестов нет</small>"}</div>
+          <div class="checks" style="margin:10px 0 0"><label><input type="checkbox" data-ww="${p.id}" ${p.weekly_words ? "checked" : ""}><span>Слова недели: помощник готовит список по понедельникам</span></label></div>
           <div class="row">
             ${p.email ? `<button class="btn sm alt" data-pw="${p.id}">🔑 Новый пароль</button>` : ""}
             ${invOf[p.id] ? `<button class="btn sm alt" data-link="${p.id}">🔗 Ссылка</button><button class="btn sm alt" data-newlink="${p.id}">↻ Новая ссылка</button>` : `<button class="btn sm alt" data-newlink="${p.id}">🔗 Создать ссылку</button>`}
@@ -658,6 +729,10 @@
       ${pending.length ? `<h3 class="sec">Добавлены, но ещё не вошли</h3><div class="list">${pending.map((a) => `<div class="li" style="cursor:default"><span class="li-main"><b>${esc(a.email)}</b></span><span class="li-side"><button class="link" data-del="${esc(a.email)}">убрать</button></span></div>`).join("")}</div>` : ""}`;
     bindTabs();
     $app.querySelectorAll("[data-t]").forEach((c) => c.onchange = () => setAssign(c.dataset.t, c.dataset.u, c.checked, c));
+    $app.querySelectorAll("[data-ww]").forEach((c) => c.onchange = async () => {
+      const { error } = await sb.from("profiles").update({ weekly_words: c.checked }).eq("id", c.dataset.ww);
+      if (error) { c.checked = !c.checked; alert("Не удалось сохранить: " + error.message); }
+    });
     on("am", async () => {
       const email = $("ae").value.trim().toLowerCase(), name = $("an").value.trim(), er = $("aer");
       er.style.color = "var(--bad)";
@@ -747,7 +822,7 @@
       return { p, started: mine.length, learned, fresh: words.length - mine.length, last: rv[0]?.created_at || null,
         todayN: today_.length, todayOk: today_.filter((r) => r.ok).length, weekN: week.length, weekOk: week.filter((r) => r.ok).length,
         due: words.length - mine.length + mine.filter((c) => c.due <= t0).length,
-        hard: mine.filter((c) => c.box === 1).map((c) => byId.get(c.word_id).pl) };
+        hard: mine.filter((c) => c.box === 1).map((c) => withArt(byId.get(c.word_id))) };
     });
     $app.innerHTML = `${tabs("words")}
       <h1>Слова</h1>
@@ -764,7 +839,7 @@
       <h3 class="sec">Словарь</h3>
       <div class="list"><details class="acc"><summary class="li"><span class="li-main"><b>＋ Добавить слово</b><small>Одно слово или список</small></span><span class="li-side chev">›</span></summary>
         <div class="acc-body">
-          <label class="field">Слово по-польски<input type="text" id="nw" autocapitalize="off"></label>
+          <label class="field">Слово по-польски (у существительных с ten / ta / to)<input type="text" id="nw" autocapitalize="off" placeholder="ta przychodnia"></label>
           <label class="field">Перевод<input type="text" id="nr"></label>
           <label class="field">Пример (необязательно)<input type="text" id="ne"></label>
           <div class="row" style="align-items:center"><select id="nl"><option>A2</option><option>B1</option></select><input type="text" id="nt" placeholder="Тема (необязательно)" style="flex:1;min-width:140px"><button class="btn" id="na">Добавить</button></div>
@@ -775,21 +850,21 @@
             <div class="row"><button class="btn alt sm" id="bs">Добавить списком</button></div><div class="err" id="er"></div></details>
         </div></details></div>
       <label class="field" style="margin:12px 0 8px"><input type="text" id="wq" placeholder="Поиск по словарю (${words.length} слов)"></label>
-      <div class="list" id="wl">${words.map((w) => `<div class="li" data-w="${w.id}" data-q="${esc((w.pl + " " + w.ru).toLowerCase())}" style="cursor:default">
-        <span class="li-main"><b>${esc(w.pl)}</b><small>${esc(w.ru)}${w.example ? " · " + esc(w.example) : ""}</small></span>
+      <div class="list" id="wl">${words.map((w) => `<div class="li" data-w="${w.id}" data-q="${esc((withArt(w) + " " + w.ru).toLowerCase())}" style="cursor:default">
+        <span class="li-main"><b>${gchip(w.gender)}${esc(withArt(w))}</b><small>${esc(w.ru)}${w.example ? " · " + esc(w.example) : ""}</small></span>
         <span class="li-side"><span class="badge" style="margin:0">${w.level}</span><button class="link" data-we="${w.id}" aria-label="Изменить">✎</button><button class="link" data-wd="${w.id}" aria-label="Удалить" style="color:var(--bad)">✕</button></span></div>`).join("") || `<div class="empty">Слов пока нет.</div>`}</div>`;
     bindTabs();
     $("wq").oninput = () => { const q = $("wq").value.trim().toLowerCase(); $app.querySelectorAll("#wl [data-w]").forEach((r) => r.style.display = !q || r.dataset.q.includes(q) ? "" : "none"); };
     on("na", async () => {
-      const pl = $("nw").value.trim(), ru = $("nr").value.trim();
+      const pw = parsePl($("nw").value), pl = pw.pl, ru = $("nr").value.trim();
       if (!pl || !ru) { $("aer").style.color = "var(--bad)"; $("aer").textContent = "Заполните слово и перевод."; return; }
-      const { error } = await sb.from("words").insert({ pl, ru, example: $("ne").value.trim(), level: $("nl").value, topic: $("nt").value.trim() });
+      const { error } = await sb.from("words").insert({ pl, ru, gender: pw.gender, example: $("ne").value.trim(), level: $("nl").value, topic: $("nt").value.trim() });
       if (error) { $("aer").style.color = "var(--bad)"; $("aer").textContent = error.message; return; }
       teacherWords();
     });
     on("bs", async () => {
       const rows = $("bulk").value.split("\n").map((l) => l.split(";").map((x) => x.trim())).filter((q) => q[0] && q[1])
-        .map((q) => ({ pl: q[0], ru: q[1], example: q[2] || "", level: $("nl").value, topic: $("nt").value.trim() }));
+        .map((q) => { const pw = parsePl(q[0]); return { pl: pw.pl, gender: pw.gender, ru: q[1], example: q[2] || "", level: $("nl").value, topic: $("nt").value.trim() }; });
       if (!rows.length) { $("er").style.color = "var(--bad)"; $("er").textContent = "Нет строк в формате «слово ; перевод»."; return; }
       const { error } = await sb.from("words").insert(rows);
       if (error) { $("er").style.color = "var(--bad)"; $("er").textContent = error.message; return; }
@@ -801,16 +876,16 @@
     $app.querySelectorAll("[data-we]").forEach((b) => b.onclick = () => {
       const w = byId.get(b.dataset.we), box = b.closest(".li");
       box.style.display = "block";
-      box.innerHTML = `<label class="field">Слово<input type="text" class="ew" value="${esc(w.pl)}"></label>
+      box.innerHTML = `<label class="field">Слово (с ten / ta / to у существительных)<input type="text" class="ew" value="${esc(withArt(w))}"></label>
         <label class="field">Перевод<input type="text" class="er2" value="${esc(w.ru)}"></label>
         <label class="field">Пример<input type="text" class="ee" value="${esc(w.example)}"></label>
         <label class="field">Уровень<select class="el"><option ${w.level === "A2" ? "selected" : ""}>A2</option><option ${w.level === "B1" ? "selected" : ""}>B1</option></select></label>
         <div class="err"></div><div class="row"><button class="btn sm sv">Сохранить</button><button class="btn sm alt cn">Отмена</button></div>`;
       box.querySelector(".cn").onclick = teacherWords;
       box.querySelector(".sv").onclick = async () => {
-        const pl = box.querySelector(".ew").value.trim(), ru = box.querySelector(".er2").value.trim();
+        const pw = parsePl(box.querySelector(".ew").value), pl = pw.pl, ru = box.querySelector(".er2").value.trim();
         if (!pl || !ru) { box.querySelector(".err").textContent = "Заполните слово и перевод."; return; }
-        const { error } = await sb.from("words").update({ pl, ru, example: box.querySelector(".ee").value.trim(), level: box.querySelector(".el").value }).eq("id", w.id);
+        const { error } = await sb.from("words").update({ pl, gender: pw.gender, ru, example: box.querySelector(".ee").value.trim(), level: box.querySelector(".el").value }).eq("id", w.id);
         if (error) { box.querySelector(".err").textContent = error.message; return; }
         teacherWords();
       };
