@@ -265,7 +265,9 @@
       const qs = raw.map(normQ);
       const order = [], groups = new Map();
       qs.forEach((q) => { const k = q.task_title + "\u0000" + q.task_instruction; if (!groups.has(k)) { groups.set(k, { title: q.task_title, instruction: q.task_instruction, qs: [] }); order.push(k); } groups.get(k).qs.push(q); });
-      const tasks = order.map((k) => { const g = groups.get(k); return { ...g, qs: shuffle(g.qs).map((q) => q.options?.length ? { ...q, options: shuffle(q.options) } : q) }; });
+      const cont = !!test.continuous_numbering; // аркуш: порядок и номера «Zadanie N» как в CKE, без перемешивания
+      const tasks = order.map((k) => { const g = groups.get(k); return cont ? { ...g, qs: g.qs.map((q) => ({ ...q })) } : { ...g, qs: shuffle(g.qs).map((q) => q.options?.length ? { ...q, options: shuffle(q.options) } : q) }; });
+      if (cont) { let n = 0; tasks.forEach((t) => t.qs.forEach((q) => { if (q.type !== "info") q.num = ++n; })); }
       runTask({ test, tasks, ti: 0, results: [], dry: !!opts.dry });
     } catch (e) { fail(e); }
   }
@@ -296,7 +298,12 @@
     const task = run.tasks[run.ti], widgets = [];
     const card = h("div", { class: "q" });
     task.qs.forEach((q, i) => {
-      const box = h("div", { class: "qbox" }, h("p", { class: "prompt" }, `${i + 1}. ${q.prompt}`));
+      if (q.type === "info") {
+        card.append(h("div", { class: "qbox" }, h("div", { class: "passage info" }, q.prompt)));
+        widgets.push({ q, fb: h("div"), read: () => true, lock: () => {} });
+        return;
+      }
+      const box = h("div", { class: "qbox" }, h("p", { class: "prompt" }, q.num ? `Zadanie ${q.num}. ${q.prompt}` : `${i + 1}. ${q.prompt}`));
       const fb = h("div");
       let w;
       if (q.type === "input") {
@@ -337,33 +344,40 @@
       const answers = widgets.map((x) => x.read());
       if (answers.some((a) => !a)) { hint.textContent = "Ответь на все вопросы задания."; return; }
       hint.textContent = "";
-      widgets.forEach((x, i) => { const r = grade(x.q, answers[i]); run.results.push(r); x.lock(r); x.fb.replaceChildren(feedback(x.q, r)); });
+      widgets.forEach((x, i) => { if (x.q.type === "info") return; const r = grade(x.q, answers[i]); run.results.push(r); x.lock(r); x.fb.replaceChildren(feedback(x.q, r)); });
       const last = run.ti + 1 === run.tasks.length;
       btn.textContent = last ? "Показать результат" : "Дальше";
       btn.onclick = () => { if (last) results(run); else { run.ti++; runTask(run); } };
       btn.scrollIntoView({ block: "nearest", behavior: "smooth" });
     };
+    if (widgets.every((x) => x.q.type === "info")) { // страница только с заданием без ответа (wypracowanie)
+      const last = run.ti + 1 === run.tasks.length;
+      btn.textContent = last ? "Показать результат" : "Дальше";
+      btn.onclick = () => { if (last) results(run); else { run.ti++; runTask(run); } };
+    }
     const back = h("button", { class: "link", onclick: () => { if (confirm("Выйти из теста? Прогресс теста будет потерян.")) (run.dry ? teacher("check") : testsList()); } }, "← Выйти");
     $app.replaceChildren(
       h("div", { class: "top" }, back, h("span", {}, `${run.test.title} · ${run.ti + 1}/${run.tasks.length}`)),
       h("div", { class: "bar" }, h("i", { style: `width:${run.ti / run.tasks.length * 100}%` })),
       task.title ? h("h2", {}, task.title) : null,
-      task.instruction ? h("p", { class: "hint" }, task.instruction) : null,
+      task.instruction ? (task.instruction.length > 140 || task.instruction.includes("\n") ? h("div", { class: "passage" }, task.instruction) : h("p", { class: "hint" }, task.instruction)) : null,
       card, hint, btn);
     window.scrollTo(0, 0);
   }
 
   async function results(run) {
-    const total = run.results.length, score = run.results.filter((r) => r.correct).length, pct = Math.round(score / total * 100);
+    const total = run.results.length, score = run.results.filter((r) => r.correct).length, pct = total ? Math.round(score / total * 100) : 0;
     const wrong = run.results.filter((r) => !r.correct);
     let saveErr = null;
     if (!run.dry) try { await must(sb.from("attempts").insert({ test_id: run.test.id, score, total, details: run.results.map((r) => ({
       task: r.q.task_title || "", type: r.q.type, prompt: r.q.prompt, given: r.given, right: r.q.answers, ok: r.correct, almost: r.status === "almost", why: r.q.explain || "" })) })); }
     catch (e) { saveErr = h("p", { class: "err" }, "Не удалось сохранить результат: " + e.message); }
+    const infos = run.tasks.flatMap((t) => t.qs).filter((q) => q.type === "info");
     const msg = pct === 100 ? "Отлично! Perfekcyjnie! 🎉" : pct >= 70 ? "Хороший результат! Dobrze!" : pct >= 40 ? "Неплохо, но стоит повторить." : "Не сдавайтесь — практика ведёт к результату!";
     $app.replaceChildren(
       h("h1", {}, "Результат"), run.dry ? h("div", { class: "fb almost", style: "margin:0 0 8px" }, "🧪 Пробный режим: результат не сохранён.") : null, h("div", { class: "score" }, `${score}/${total}`),
       h("p", { class: "sub", style: "text-align:center" }, `${pct}% · ${msg}`), saveErr,
+      infos.length ? h("div", {}, h("h3", {}, "Не забудьте"), infos.map((q) => h("div", { class: "passage info" }, q.prompt))) : null,
       wrong.length ? h("div", {}, h("h3", {}, "Над чем поработать"), h("ul", { class: "review" }, wrong.map((r) => h("li", {},
         r.q.prompt, h("br"), "Ваш ответ: ", h("span", { class: "u" }, given2text(r.given)), " · Верно: ", h("span", { class: "a" }, shown(r.q)),
         r.q.explain ? h("br") : null, r.q.explain ? h("small", {}, r.q.explain) : null)))) : null,
@@ -376,12 +390,13 @@
     try {
       const att = await must(sb.from("attempts").select("*, tests(title,level)").eq("user_id", me.user.id).order("created_at", { ascending: false }).limit(50));
       $app.innerHTML = `${header()}<h1>Мои результаты</h1>
-        ${att.length ? `<p class="sub">Последние прохождения.</p>${att.map((a) => `<div class="task static"><span class="task-main"><b>${esc(a.tests?.title)}</b>
-          <small>${new Date(a.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}</small></span>
-          <span class="task-side"><span class="chip ${pctOf(a) >= 70 ? "ok" : "mid"}">${a.score}/${a.total}</span></span></div>`).join("")}`
+        ${att.length ? `<p class="sub">Последние прохождения.</p>${att.map((a) => `<button class="task" data-ha="${a.id}"><span class="task-main"><b>${esc(a.tests?.title)}</b>
+          <small>${new Date(a.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })} · посмотреть разбор</small></span>
+          <span class="task-side"><span class="chip ${pctOf(a) >= 70 ? "ok" : "mid"}">${a.score}/${a.total}</span></span></button>`).join("")}`
           : `<p class="sub">Вы ещё не проходили тесты. Начните с вкладки «Задания».</p>`}
         ${navBar("hist")}`;
       bindHeader(); bindNav();
+      $app.querySelectorAll("[data-ha]").forEach((b) => b.onclick = () => { const a = att.find((x) => x.id === b.dataset.ha); attemptView(a, null, a.tests?.title, { student: true }); });
     } catch (e) { fail(e); }
   }
 
@@ -632,7 +647,8 @@
           <label class="field">Название<input type="text" id="tt" value="${esc(t.title)}"></label>
           <label class="field">Описание<input type="text" id="td" value="${esc(t.description)}"></label>
           <label class="field">Уровень<select id="tv"><option ${t.level === "A2" ? "selected" : ""}>A2</option><option ${t.level === "B1" ? "selected" : ""}>B1</option></select></label>
-          <div class="checks" style="margin:0"><label><input type="checkbox" id="tp" ${t.published ? "checked" : ""}> <span><b>Опубликован</b> (виден ученикам, которым доступен)</span></label></div>
+          <div class="checks" style="margin:0"><label><input type="checkbox" id="tp" ${t.published ? "checked" : ""}> <span><b>Опубликован</b> (виден ученикам, которым доступен)</span></label>
+            <label><input type="checkbox" id="tcn" ${t.continuous_numbering ? "checked" : ""}> <span>Сквозная нумерация «Zadanie 1…N», вопросы без перемешивания (формат аркуша)</span></label></div>
         </div>
         <div class="list" style="margin-top:12px"><details class="acc"><summary class="li"><span class="li-main"><b>Кому доступен</b><small>${access}</small></span><span class="li-side chev">›</span></summary>
           <div class="acc-body"><div class="checks"><label><input type="checkbox" id="tfa" ${t.for_all ? "checked" : ""}> <b>Всем ученикам</b></label>
@@ -644,7 +660,7 @@
         <div class="row"><button class="btn alt" id="nq">＋ Добавить вопрос</button></div>`;
       on("back", teacherTests);
       on("ts", async () => {
-        const { error } = await sb.from("tests").update({ title: $("tt").value, description: $("td").value, level: $("tv").value, published: $("tp").checked, for_all: $("tfa").checked }).eq("id", id);
+        const { error } = await sb.from("tests").update({ title: $("tt").value, description: $("td").value, level: $("tv").value, published: $("tp").checked, continuous_numbering: $("tcn").checked, for_all: $("tfa").checked }).eq("id", id);
         $("er").style.color = error ? "var(--bad)" : "var(--ok)"; $("er").textContent = error ? error.message : "Сохранено";
       });
       $app.querySelectorAll("[data-as]").forEach((c) => c.onchange = () => setAssign(id, c.dataset.as, c.checked, c));
@@ -656,13 +672,13 @@
       $app.querySelectorAll("[data-qs]").forEach((b) => b.onclick = async () => {
         const f = b.closest(".acc-body"), type = f.querySelector(".qt").value, msg = f.querySelector(".err");
         const lines = (sel) => f.querySelector(sel).value.split("\n").map((x) => x.trim()).filter(Boolean);
-        const options = type === "input" ? [] : lines(".qo"), answers = lines(".qa");
-        const bad = !answers.length ? "Укажите правильный ответ."
+        const options = type === "input" || type === "info" ? [] : lines(".qo"), answers = type === "info" ? [] : lines(".qa");
+        const bad = type === "info" ? "" : !answers.length ? "Укажите правильный ответ."
           : type === "choice" && (answers.length !== 1 || !options.includes(answers[0])) ? "Для выбора нужен один ответ, совпадающий с вариантом."
           : type === "multi" && (answers.length < 2 || answers.length >= options.length || !answers.every((a) => options.includes(a))) ? "Для «отметить все» нужно ≥2 верных (не все), каждый из вариантов."
           : type !== "input" && options.length < 2 ? "Нужно минимум 2 варианта." : "";
         if (bad) { msg.style.color = "var(--bad)"; msg.textContent = bad; return; }
-        const { error } = await sb.from("questions").update({ type, prompt: f.querySelector(".qp").value, options, answer: answers[0], answers: type === "choice" ? [] : answers,
+        const { error } = await sb.from("questions").update({ type, prompt: f.querySelector(".qp").value, options, answer: answers[0] || "", answers: type === "choice" ? [] : answers,
           explain: f.querySelector(".qx").value, task_title: f.querySelector(".qtt").value, task_instruction: f.querySelector(".qti").value }).eq("id", b.dataset.qs);
         msg.style.color = error ? "var(--bad)" : "var(--ok)"; msg.textContent = error ? error.message : "Сохранено";
       });
@@ -675,10 +691,10 @@
   function qForm(q, i) {
     const t = q.type === "type" ? "input" : q.type;
     const ans = t === "choice" ? [q.answer] : (Array.isArray(q.answers) && q.answers.length ? q.answers : [q.answer]);
-    const kind = { choice: "Выбор", multi: "Несколько верных", input: "Ввод слова" }[t];
+    const kind = { choice: "Выбор", multi: "Несколько верных", input: "Ввод слова", info: "Без ответа" }[t];
     return `<details class="acc"><summary class="li"><span class="li-main"><b>${i + 1}. ${esc(q.prompt.length > 70 ? q.prompt.slice(0, 70) + "…" : q.prompt)}</b><small>${kind}${q.task_title ? " · " + esc(q.task_title) : ""}</small></span><span class="li-side chev">›</span></summary>
       <div class="acc-body">
-      <label class="field">Тип<select class="qt"><option value="choice" ${t === "choice" ? "selected" : ""}>Выбор ответа</option><option value="multi" ${t === "multi" ? "selected" : ""}>Отметить все верные</option><option value="input" ${t === "input" ? "selected" : ""}>Ввод слова</option></select></label>
+      <label class="field">Тип<select class="qt"><option value="choice" ${t === "choice" ? "selected" : ""}>Выбор ответа</option><option value="multi" ${t === "multi" ? "selected" : ""}>Отметить все верные</option><option value="input" ${t === "input" ? "selected" : ""}>Ввод слова</option><option value="info" ${t === "info" ? "selected" : ""}>Задание без ответа (без баллов)</option></select></label>
       <label class="field">Задание (заголовок, необязательно)<input type="text" class="qtt" value="${esc(q.task_title)}"></label>
       <label class="field">Инструкция к заданию (необязательно)<input type="text" class="qti" value="${esc(q.task_instruction)}"></label>
       <label class="field">Вопрос (для «Ввод слова» нужен пропуск ___)<input type="text" class="qp" value="${esc(q.prompt)}"></label>
@@ -827,7 +843,8 @@
           <p class="hint" style="margin:10px 0 2px">Доступные тесты</p>
           <div class="checks">${tests.map((t) => `<label><input type="checkbox" data-t="${t.id}" data-u="${p.id}" ${has.has(t.id + ":" + p.id) ? "checked" : ""}>
             <span><span class="badge">${t.level}</span>${esc(t.title)}${t.for_all ? " <small>(всем)</small>" : ""}${t.published ? "" : ` <small>(черновик)</small>`}</span></label>`).join("") || "<small>Тестов нет</small>"}</div>
-          <div class="checks" style="margin:10px 0 0"><label><input type="checkbox" data-ww="${p.id}" ${p.weekly_words ? "checked" : ""}><span>Слова недели: помощник готовит список по понедельникам</span></label></div>
+          <div class="checks" style="margin:10px 0 0"><label><input type="checkbox" data-ww="${p.id}" ${p.weekly_words ? "checked" : ""}><span>Слова недели: помощник готовит список по понедельникам</span></label>
+            <label><input type="checkbox" data-ap="${p.id}" ${p.arkusz_autopublish ? "checked" : ""}><span>Аркуши CKE: публиковать сразу после проверки (первые 3 всегда черновики)</span></label></div>
           <div class="row">
             ${p.email ? `<button class="btn sm alt" data-pw="${p.id}">🔑 Новый пароль</button>` : ""}
             ${invOf[p.id] ? `<button class="btn sm alt" data-link="${p.id}">🔗 Ссылка</button><button class="btn sm alt" data-newlink="${p.id}">↻ Новая ссылка</button>` : `<button class="btn sm alt" data-newlink="${p.id}">🔗 Создать ссылку</button>`}
@@ -843,6 +860,10 @@
     $app.querySelectorAll("[data-t]").forEach((c) => c.onchange = () => setAssign(c.dataset.t, c.dataset.u, c.checked, c));
     $app.querySelectorAll("[data-ww]").forEach((c) => c.onchange = async () => {
       const { error } = await sb.from("profiles").update({ weekly_words: c.checked }).eq("id", c.dataset.ww);
+      if (error) { c.checked = !c.checked; alert("Не удалось сохранить: " + error.message); }
+    });
+    $app.querySelectorAll("[data-ap]").forEach((c) => c.onchange = async () => {
+      const { error } = await sb.from("profiles").update({ arkusz_autopublish: c.checked }).eq("id", c.dataset.ap);
       if (error) { c.checked = !c.checked; alert("Не удалось сохранить: " + error.message); }
     });
     on("am", async () => {
@@ -1020,11 +1041,11 @@
   }
 
   // Разбор одного прохождения: что и как ответил ученик
-  function attemptView(a, who, title) {
+  function attemptView(a, who, title, opts = {}) {
     const d = Array.isArray(a.details) ? a.details : null;
     const txt = (g) => Array.isArray(g) ? g.join("; ") : String(g ?? "");
     const row = (x, i) => `<li class="${x.ok ? "r-ok" : x.almost ? "r-almost" : "r-bad"}"><b>${i + 1}. ${esc(x.prompt)}</b><br>
-      ${x.ok ? "✅" : x.almost ? "🟡" : "❌"} Ответ ученика: <span class="u">${esc(txt(x.given))}</span>${x.ok ? "" : `<br>Верно: <span class="a">${esc(txt(x.right))}</span>`}${x.why && !x.ok ? `<br><small>${esc(x.why)}</small>` : ""}</li>`;
+      ${x.ok ? "✅" : x.almost ? "🟡" : "❌"} ${opts.student ? "Ваш ответ" : "Ответ ученика"}: <span class="u">${esc(txt(x.given))}</span>${x.ok ? "" : `<br>Верно: <span class="a">${esc(txt(x.right))}</span>`}${x.why && (!x.ok || opts.student) ? `<br><small>${esc(x.why)}</small>` : ""}</li>`;
     let body = `<p class="sub">Подробный разбор не сохранён: тест был пройден до появления этой функции.</p>`;
     if (d) {
       const wrong = d.filter((x) => !x.ok), tasks = [...new Set(d.map((x) => x.task))];
@@ -1032,9 +1053,10 @@
         <details class="acc"><summary class="li"><span class="li-main"><b>Все ответы</b><small>${d.length} вопросов по заданиям</small></span><span class="li-side chev">›</span></summary>
         ${tasks.map((t) => `${t ? `<h3 class="sec">${esc(t)}</h3>` : ""}<ul class="review">${d.map((x, i) => [x, i]).filter(([x]) => x.task === t).map(([x, i]) => row(x, i)).join("")}</ul>`).join("")}</details>`;
     }
-    $app.innerHTML = `${tabs("results")}<p><button class="link" id="bk">← К результатам</button></p><h1>${esc(who || "—")}</h1>
-      <p class="sub">${esc(title || "—")} · ${new Date(a.created_at).toLocaleString("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })} · <b>${a.score}/${a.total}</b></p>${body}`;
-    bindTabs(); $app.querySelector("#bk").onclick = () => teacherResults().catch(fail);
+    $app.innerHTML = `${opts.student ? header() : tabs("results")}<p><button class="link" id="bk">← К результатам</button></p><h1>${esc(opts.student ? (title || "—") : (who || "—"))}</h1>
+      <p class="sub">${opts.student ? "" : esc(title || "—") + " · "}${new Date(a.created_at).toLocaleString("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })} · <b>${a.score}/${a.total}</b></p>${body}${opts.student ? navBar("hist") : ""}`;
+    if (opts.student) { bindHeader(); bindNav(); $app.querySelector("#bk").onclick = history; }
+    else { bindTabs(); $app.querySelector("#bk").onclick = () => teacherResults().catch(fail); }
   }
 
   // ---------- старт ----------
