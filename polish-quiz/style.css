@@ -116,7 +116,7 @@ details.acc+details.acc,.list>details+details{border-top:1px solid var(--line)}
 .review{list-style:none;padding:0;margin:12px 0;display:grid;gap:8px}
 .review li{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:15px}
 .review .a{color:var(--ok);font-weight:600}.review .u{color:var(--bad);font-weight:600}
-.flash{text-align:center;padding:36px 16px}.flash .w{font-size:32px;font-weight:700}.flash .tr{font-size:22px;margin-top:12px}.flash .ex{color:var(--muted);margin-top:6px}
+.flash{text-align:center;padding:36px 16px}.flash .w{font-size:32px;font-weight:700;overflow-wrap:anywhere}.flash .w.long{font-size:22px;line-height:1.35}.flash .tr{font-size:22px;margin-top:12px}.flash .ex{color:var(--muted);margin-top:6px}
 
 /* ----- нижняя навигация ----- */
 .nav{position:fixed;z-index:30;left:50%;transform:translateX(-50%);bottom:max(10px,env(safe-area-inset-bottom));width:min(480px,calc(100% - 20px));display:flex;gap:2px;padding:5px;background:var(--surface);border:1px solid var(--line);border-radius:20px;box-shadow:0 8px 28px rgba(15,20,50,.16)}

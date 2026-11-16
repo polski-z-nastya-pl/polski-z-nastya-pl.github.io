@@ -418,7 +418,7 @@
           <div class="top"><button class="link" id="back">← Выйти</button><span>Карточки · ${i + 1}/${queue.length}</span></div>
           <div class="bar"><i style="width:${i / queue.length * 100}%"></i></div>
           <div class="q flash">
-            <div class="w">${gchip(w.gender)}${esc(withArt(w))} <button class="say" id="say" aria-label="Прослушать">🔊</button></div>
+            <div class="w${w.pl.length > 24 ? " long" : ""}">${gchip(w.gender)}${esc(withArt(w))} <button class="say" id="say" aria-label="Прослушать">🔊</button></div>
             ${flipped ? `<div class="tr">${esc(w.ru)}</div>${w.example ? `<div class="ex">${esc(w.example)}</div>` : ""}` : ""}
           </div>
           <div class="row">${flipped
@@ -471,9 +471,11 @@
 
   // ---------- слова недели: карточка одобрения ----------
   const WORDS_TEST = "Повседневные слова и фразы";
+  let NAMES = new Map();
+  const batchFor = (b) => (b.audience && b.audience.length ? b.audience.map((id) => NAMES.get(id) || "?").join(" и ") : (b.profiles?.display_name || "—"));
   const batchCard = (b) => `<div class="q wb" data-b="${b.id}" style="margin-bottom:16px">
-    <b>🤖 Słówka na tydzień (${esc(b.profiles?.display_name || "—")}): ${b.items.length} słów — добавить?</b>
-    <p class="hint" style="margin:4px 0 8px">Тема: ${esc(b.topic || "—")} · неделя с ${new Date(b.week).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}. Снимите галочку с лишних слов. Пока вы не нажмёте «Добавить», ничего не меняется.</p>
+    <b>${b.kind === "deck" ? `🃏 Колода «${esc(b.topic)}» (${esc(batchFor(b))}): ${b.items.length} карточек — добавить?` : `🤖 Słówka na tydzień (${esc(batchFor(b))}): ${b.items.length} słów — добавить?`}</b>
+    <p class="hint" style="margin:4px 0 8px">${b.kind === "deck" ? "Только карточки (польская фраза → перевод), без вопросов в тест." : `Тема: ${esc(b.topic || "—")} · неделя с ${new Date(b.week).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}.`} Снимите галочку с лишних. Пока вы не нажмёте «Добавить», ничего не меняется.</p>
     <div class="checks">${b.items.map((it, i) => `<label><input type="checkbox" data-i="${i}" checked>
       <span>${gchip(it.gender)}<b>${esc(withArt(it))}</b> — ${esc(it.ru)}${it.pos ? ` <small>(${esc(it.pos)})</small>` : ""}</span></label>`).join("")}</div>
     <div class="err" data-berr></div>
@@ -500,6 +502,14 @@
   // Добавляет выбранные слова в «Слова» и вопросы в существующий тест; повторных слов не дублирует
   async function approveBatch(b, keep) {
     const items = keep.map((i) => b.items[i]);
+    const aud = b.audience && b.audience.length ? b.audience : null;
+    if (b.kind === "deck") {
+      const have0 = new Set((await must(sb.from("words").select("pl,topic"))).map((w) => w.topic + "|" + w.pl.trim().toLowerCase()));
+      const rows0 = items.filter((it) => !have0.has((b.topic || "") + "|" + it.pl.trim().toLowerCase())).map((it) => ({ pl: it.pl, ru: it.ru, gender: null, pos: it.pos || "wyr.", example: it.example || "", level: "B1", topic: b.topic || "", audience: aud }));
+      if (rows0.length) await must(sb.from("words").insert(rows0).select("id"));
+      await must(sb.from("word_batches").update({ status: "approved", decided_at: new Date().toISOString() }).eq("id", b.id).select("id"));
+      return { words: rows0.length, questions: 0 };
+    }
     const tests = await must(sb.from("tests").select("id").eq("title", WORDS_TEST));
     if (tests.length !== 1) throw new Error(`тест «${WORDS_TEST}» не найден или их несколько`);
     const tid = tests[0].id;
@@ -519,7 +529,7 @@
       pool.forEach((q) => rows.push({ test_id: tid, position: ++pos, type: q.type, prompt: q.prompt, options: q.options, answer: q.answer, answers: q.answers, explain: q.explain, task_title: reviewTitle, task_instruction: "Слова из прошлых недель: повторение." }));
     }
     if (rows.length) await must(sb.from("questions").insert(rows).select("id"));
-    const newWords = items.filter((it) => !have.has(key(it.gender, it.pl))).map((it) => ({ pl: it.pl, ru: it.ru, gender: it.gender || null, pos: it.pos || "", example: it.example || "", level: "B1", topic: b.topic || "" }));
+    const newWords = items.filter((it) => !have.has(key(it.gender, it.pl))).map((it) => ({ pl: it.pl, ru: it.ru, gender: it.gender || null, pos: it.pos || "", example: it.example || "", level: "B1", topic: b.topic || "", audience: aud }));
     if (newWords.length) await must(sb.from("words").insert(newWords).select("id"));
     await must(sb.from("word_batches").update({ status: "approved", decided_at: new Date().toISOString() }).eq("id", b.id).select("id"));
     return { words: newWords.length, questions: rows.length };
@@ -585,12 +595,14 @@
   }
 
   async function teacherTests() {
-    const [tests, logs, states, batches, updates] = await Promise.all([
+    const [tests, logs, states, batches, updates, profs0] = await Promise.all([
       must(sb.from("tests").select("*, questions(count)").order("created_at", { ascending: false })),
       must(sb.from("agent_log").select("*").eq("seen", false).order("created_at", { ascending: false }).limit(8)),
       must(sb.from("agent_state").select("checked_at").order("checked_at", { ascending: false }).limit(1)),
       must(sb.from("word_batches").select("*, profiles(display_name)").eq("status", "pending").order("week", { ascending: false })),
-      must(sb.from("test_updates").select("*, tests(title)").in("status", ["requested", "ready"]).order("created_at"))]);
+      must(sb.from("test_updates").select("*, tests(title)").in("status", ["requested", "ready"]).order("created_at")),
+      must(sb.from("profiles").select("id,display_name"))]);
+    NAMES = new Map(profs0.map((p) => [p.id, p.display_name]));
     const busy = new Set(updates.map((u) => u.test_id));
     const last = states[0] && new Date(states[0].checked_at), stale = !last || Date.now() - last > 2 * 864e5;
     const agentLine = `<p class="hint">🤖 Помощник проверял материалы: ${last ? last.toLocaleDateString("ru-RU", { day: "numeric", month: "long" }) : "ещё не проверял"}${stale ? ` <b style="color:var(--bad)">· давно не проверял, сообщите владельцу</b>` : ""}</p>`;
@@ -948,13 +960,14 @@
       return days <= 0 ? `сегодня в ${time}` : days === 1 ? `вчера в ${time}` : new Date(d).toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
     };
     const stats = students.map((p) => {
+      const vis = words.filter((w) => !w.audience || w.audience.includes(p.id));
       const mine = prog.filter((c) => c.user_id === p.id && byId.has(c.word_id));
       const rv = reviews.filter((r) => r.user_id === p.id);
       const today_ = rv.filter((r) => new Date(r.created_at) >= startOfDay), week = rv.filter((r) => new Date(r.created_at).getTime() >= weekAgo);
       const learned = mine.filter((c) => c.box >= 4).length;
-      return { p, started: mine.length, learned, fresh: words.length - mine.length, last: rv[0]?.created_at || null,
+      return { p, vis: vis.length, started: mine.length, learned, fresh: vis.length - mine.length, last: rv[0]?.created_at || null,
         todayN: today_.length, todayOk: today_.filter((r) => r.ok).length, weekN: week.length, weekOk: week.filter((r) => r.ok).length,
-        due: words.length - mine.length + mine.filter((c) => c.due <= t0).length,
+        due: vis.length - mine.length + mine.filter((c) => c.due <= t0).length,
         hard: mine.filter((c) => c.box === 1).map((c) => withArt(byId.get(c.word_id))) };
     });
     $app.innerHTML = `${tabs("words")}
@@ -962,8 +975,8 @@
       <h3 class="sec">Как ученики учат слова</h3>
       ${stats.length ? `<div class="list">${stats.map((x) => `<div class="li" style="cursor:default;align-items:stretch;flex-direction:column;gap:8px">
         <span style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b>${esc(x.p.display_name)}</b><small>${esc(when(x.last))}</small></span>
-        <span class="bar" style="margin:0" title="начато слов"><i style="width:${words.length ? Math.round(x.started / words.length * 100) : 0}%"></i></span>
-        <small>Начато слов: <b>${x.started}</b> из ${words.length} · выучено: <b>${x.learned}</b> · на повторение сегодня: ${x.due}</small>
+        <span class="bar" style="margin:0" title="начато слов"><i style="width:${x.vis ? Math.round(x.started / x.vis * 100) : 0}%"></i></span>
+        <small>Начато слов: <b>${x.started}</b> из ${x.vis} · выучено: <b>${x.learned}</b> · на повторение сегодня: ${x.due}</small>
         <small>Сегодня: <b>${x.todayN}</b> ${plural(x.todayN, "ответ", "ответа", "ответов")}${x.todayN ? ` (верно ${x.todayOk})` : ""} · за 7 дней: <b>${x.weekN}</b>${x.weekN ? ` (верно ${x.weekOk})` : ""}</small>
         ${x.hard.length ? `<small>Не даются: ${esc(x.hard.slice(0, 8).join(", "))}${x.hard.length > 8 ? " …" : ""}</small>` : ""}</div>`).join("")}</div>
         <p class="hint" style="margin-top:8px">Полоса показывает, сколько слов ученик уже начал учить. «Выучено» — слово, которое он назвал правильно несколько раз подряд в разные дни, поэтому это число растёт медленно. «Не даются» — слова с последним ответом «не знал».</p>`
